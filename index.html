@@ -300,6 +300,7 @@
             font-size: 1rem; 
             cursor: pointer; 
             color: white; 
+            text-decoration: none;
             transition: opacity 0.2s;
             display: flex; 
             justify-content: center; 
@@ -410,11 +411,17 @@
             <button class="btn btn-copy" type="button" onclick="copyExternalOpenLink()">
                 <i class="fas fa-copy"></i> 複製外部開啟連結
             </button>
-            <button class="btn btn-external" type="button" onclick="retryOpenExternalBrowser()">
-                <i class="fas fa-up-right-from-square"></i> 再試一次外部開啟
-            </button>
+            <a
+                id="externalBrowserButton"
+                class="btn btn-external"
+                href="https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1"
+                target="_blank"
+                rel="noopener noreferrer external"
+            >
+                <i class="fas fa-up-right-from-square"></i> 用外部瀏覽器開啟
+            </a>
         </div>
-        <a id="externalBrowserLink" class="browser-guide-link" href="#" target="_blank" rel="noopener noreferrer">點我直接用外部瀏覽器開啟</a>
+        <a id="externalBrowserLink" class="browser-guide-link" href="https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1" target="_blank" rel="noopener noreferrer external">點我直接用外部瀏覽器開啟</a>
         <div class="browser-guide-hint">若沒有自動跳出去，請按上方按鈕或這個連結重新開啟。</div>
     </div>
 
@@ -629,9 +636,15 @@
         if (!isLineInAppBrowser) return;
 
         const guideCard = document.getElementById('browserGuideCard');
+        const externalButton = document.getElementById('externalBrowserButton');
         const externalLink = document.getElementById('externalBrowserLink');
+        const externalUrl = buildExternalBrowserUrl();
+
+        if (externalButton) {
+            externalButton.href = externalUrl;
+        }
         if (externalLink) {
-            externalLink.href = buildExternalBrowserUrl();
+            externalLink.href = externalUrl;
             externalLink.textContent = '點我直接用外部瀏覽器開啟';
         }
         if (guideCard) guideCard.classList.add('show');
@@ -640,24 +653,6 @@
     function hideInlineBrowserGuide() {
         const guideCard = document.getElementById('browserGuideCard');
         if (guideCard) guideCard.classList.remove('show');
-    }
-
-    async function retryOpenExternalBrowser() {
-        const externalUrl = buildExternalBrowserUrl();
-
-        try {
-            if (typeof liff !== 'undefined' && isLiffInitialized) {
-                await liff.openWindow({
-                    url: externalUrl,
-                    external: true
-                });
-                return;
-            }
-        } catch (error) {
-            console.error('LIFF 外部開啟失敗，改用一般導頁：', error);
-        }
-
-        window.location.assign(externalUrl);
     }
 
     async function copyTextWithFeedback(text, successMessage, failMessage) {
