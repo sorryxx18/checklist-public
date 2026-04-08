@@ -570,7 +570,7 @@
 
 <script>
     const MY_LIFF_ID = "2008646412-AE6RG7wN";
-    const FIXED_SHARE_URL = "https://liff.line.me/2009733146-5efuEnwr?openExternalBrowser=1";
+    const LIFF_BASE_URL = `https://liff.line.me/${MY_LIFF_ID}`;
     
     const checklists = {
         general: { title: "臺北市政府消防局訓練安全檢核表(通用)", items: ["於訓練前是否有對學員進行危害告知?", "是否依照消防署或局頒教材內容安排進行上課。", "是否已熟知署頒消防安全救災手冊內容之相關規定，並依規定要求進行操作？", "現場操作人員有無身體不適情形？現場醫療器材有無準備？", "評估天候狀況是否適合操作?", "是否選用適當操作場域?", "個人裝備及使用器材是否適當?", "訓練所需裝備器材外觀功能點檢是否正常?", "確認操作人員個人裝備及身體狀況", "教官是否進行示範講解", "是否有擬定安全計畫(備援方案)？"] },
@@ -587,18 +587,28 @@
 
     let p1, p2;
     let isLiffInitialized = false;
+    let initAppPromise = null;
     let cachedPdfBlob = null;
     let cachedPdfFileName = '';
     let toastTimer = null;
     const isLineInAppBrowser = /Line\//i.test(navigator.userAgent || '');
 
     function buildExternalBrowserUrl() {
-        return FIXED_SHARE_URL;
-    }
+        const currentUrl = new URL(window.location.href);
+        const externalUrl = new URL(LIFF_BASE_URL);
 
-    function shouldAttemptExternalBrowserRedirect() {
-        const url = new URL(window.location.href);
-        return isLineInAppBrowser && url.searchParams.get('openExternalBrowser') !== '1';
+        currentUrl.searchParams.forEach((value, key) => {
+            if (key !== 'liff.state') {
+                externalUrl.searchParams.set(key, value);
+            }
+        });
+        externalUrl.searchParams.set('openExternalBrowser', '1');
+
+        if (currentUrl.hash) {
+            externalUrl.hash = currentUrl.hash;
+        }
+
+        return externalUrl.toString();
     }
 
     function showToast(message) {
@@ -685,14 +695,18 @@
     }
 
     async function initApp() {
-        if (shouldAttemptExternalBrowserRedirect()) {
-            window.location.replace(buildExternalBrowserUrl());
-            return;
+        if (initAppPromise) {
+            return initAppPromise;
         }
 
-        try {
-            await liff.init({ liffId: MY_LIFF_ID });
-            isLiffInitialized = true;
+        initAppPromise = (async () => {
+            if (isLiffInitialized) {
+                return;
+            }
+
+            try {
+                await liff.init({ liffId: MY_LIFF_ID });
+                isLiffInitialized = true;
 
             if (liff.isInClient() && !liff.isLoggedIn()) {
                 liff.login();
@@ -704,34 +718,37 @@
                 document.querySelector('.app-shell').style.borderRadius = '0';
                 document.querySelector('.app-shell').style.height = '100%';
             }
-        } catch (e) {
-            console.error("LIFF Init Error", e);
-        }
+            } catch (e) {
+                console.error("LIFF Init Error", e);
+            }
 
-        if (isLineInAppBrowser) {
-            showInlineBrowserGuide();
-        } else {
-            hideInlineBrowserGuide();
-        }
+            if (isLineInAppBrowser) {
+                showInlineBrowserGuide();
+            } else {
+                hideInlineBrowserGuide();
+            }
 
-        bindStatePersistence();
-        loadState();
+            bindStatePersistence();
+            loadState();
 
-        const fullUrl = window.location.href;
-        const match = fullUrl.match(/[?&]course=([^&#]*)/);
-        if (match) {
-            const courseValue = decodeURIComponent(match[1]);
-            setTimeout(() => {
-                const trainField = document.getElementById('trainName');
-                if (trainField) {
-                    trainField.value = courseValue;
-                    saveState();
-                }
-            }, 200);
-        }
+            const fullUrl = window.location.href;
+            const match = fullUrl.match(/[?&]course=([^&#]*)/);
+            if (match) {
+                const courseValue = decodeURIComponent(match[1]);
+                setTimeout(() => {
+                    const trainField = document.getElementById('trainName');
+                    if (trainField) {
+                        trainField.value = courseValue;
+                        saveState();
+                    }
+                }, 200);
+            }
 
-        updateItems();
-        setDefaultTime();
+            updateItems();
+            setDefaultTime();
+        })();
+
+        return initAppPromise;
     }
     
     function saveState() {
@@ -1062,13 +1079,13 @@
             `時間：${trainTime}`,
             `地點：${trainLoc}`,
             '',
-            FIXED_SHARE_URL
+            buildExternalBrowserUrl()
         ].join('\n');
     }
 
     async function copyCurrentLink() {
         await copyTextWithFeedback(
-            FIXED_SHARE_URL,
+            buildExternalBrowserUrl(),
             '已複製分享連結。',
             '複製失敗，請改用 Safari、Chrome 或手動複製連結。'
         );
@@ -1079,7 +1096,7 @@
         document.getElementById('loaderText').innerText = '準備分享中...';
 
         const shareText = buildShareText();
-        const shareUrl = FIXED_SHARE_URL;
+        const shareUrl = buildExternalBrowserUrl();
         const shareTitle = document.getElementById('trainName').value || '訓練安全檢核表';
 
         try {
