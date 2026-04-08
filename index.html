@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>訓練安全檢核系統</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --line: #d9e0e7;
+      --text: #1f2937;
+      --sub: #6b7280;
+      --primary: #0f766e;
+      --primary-dark: #115e59;
+      --danger: #b91c1c;
+      --ok: #166534;
+      --shadow: 0 10px 30px rgba(0,0,0,.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0f766e, #155e75);
+      color: #fff;
+      border-radius: 24px;
+      padding: 28px 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      margin: 0;
+      opacity: .92;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .stepbar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 18px 0 22px;
+    }
+
+    .step {
+      background: #e8eef2;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-weight: 700;
+      text-align: center;
+      color: #4b5563;
+    }
+
+    .step.active {
+      background: #d1fae5;
+      color: var(--primary-dark);
+      border: 2px solid #6ee7b7;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+
+    .card h2 {
+      margin: 0 0 18px;
+      font-size: 22px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .field label {
+      display: block;
+      font-size: 14px;
+      color: var(--sub);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="time"],
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: #14b8a6;
+      box-shadow: 0 0 0 4px rgba(20,184,166,.12);
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .hint {
+      color: var(--sub);
+      font-size: 13px;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+
+    .btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      transition: .18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn-danger {
+      background: #fee2e2;
+      color: var(--danger);
+    }
+
+    .btn-ok {
+      background: #dcfce7;
+      color: var(--ok);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      min-width: 780px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 12px 10px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #374151;
+      font-weight: 800;
+    }
+
+    .status-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .status-group label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      font-size: 14px;
+      color: #111827;
+      font-weight: 500;
+    }
+
+    .sign-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sign-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      background: #fcfcfd;
+    }
+
+    .sign-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+
+    .sign-title h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .sig-box {
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      background: #fff;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 240px;
+      background: #fff;
+    }
+
+    .preview-sheet {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 24px;
+    }
+
+    .preview-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 900;
+      margin: 0 0 18px;
+      letter-spacing: 1px;
+    }
+
+    .preview-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 18px;
+      margin-bottom: 16px;
+      font-size: 15px;
+    }
+
+    .preview-meta div {
+      padding: 8px 0;
+      border-bottom: 1px dashed #d1d5db;
+    }
+
+    .preview-meta strong {
+      color: #111827;
+    }
+
+    .preview-remark {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      white-space: pre-wrap;
+      line-height: 1.7;
+      min-height: 72px;
+    }
+
+    .preview-signs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .preview-sign-item {
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      padding: 12px;
+      background: #f9fbff;
+    }
+
+    .preview-sign-item h4 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    .preview-sign-img {
+      width: 100%;
+      height: 140px;
+      object-fit: contain;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.7;
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.info { background: #eff6ff; color: #1d4ed8; }
+    .status.warn { background: #fff7ed; color: #c2410c; }
+    .status.ok { background: #ecfdf5; color: #047857; }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2, .grid-3, .sign-grid, .preview-meta, .preview-signs {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h1 {
+        font-size: 25px;
+      }
+
+      .preview-title {
+        font-size: 23px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>訓練安全檢核系統</h1>
+      <p>
+        本版已將原「確認寄送 Email」流程改為「分享到 LINE」。
+        使用方式為先完成表單、簽名與 PDF 產製，再呼叫手機原生分享視窗，請使用者自行選擇 LINE。
+        若裝置或瀏覽器不支援檔案分享，系統會自動退回下載 PDF。
+      </p>
+    </section>
+
+    <div class="stepbar">
+      <div class="step active" id="step-indicator-1">1. 填寫檢核表</div>
+      <div class="step" id="step-indicator-2">2. 簽名</div>
+      <div class="step" id="step-indicator-3">3. 預覽 / 下載 / 分享</div>
+    </div>
+
+    <section class="card" id="step-1">
+      <h2>填寫檢核表</h2>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="checklistType">1. 檢核表種類</label>
+          <select id="checklistType"></select>
+        </div>
+
+        <div class="field">
+          <label for="trainName">2. 訓練名稱 / 期別</label>
+          <input id="trainName" type="text" placeholder="例如：114年特考班職前訓練第1梯次" />
+        </div>
+
+        <div class="field">
+          <label for="trainDate">3. 訓練日期</label>
+          <input id="trainDate" type="date" />
+        </div>
+
+        <div class="field">
+          <label for="trainTime">4. 訓練時間</label>
+          <input id="trainTime" type="time" />
+        </div>
+
+        <div class="field">
+          <label for="trainLocation">5. 訓練地點</label>
+          <input id="trainLocation" type="text" placeholder="例如：訓練中心 A 區 / H型火場訓練櫃" />
+        </div>
+
+        <div class="field">
+          <label for="fillPerson">6. 填表人 / 聯絡人</label>
+          <input id="fillPerson" type="text" placeholder="例如：黃○○ / 訓練中心" />
+        </div>
+      </div>
+
+      <div class="field" style="margin-top: 16px;">
+        <label for="remarks">備註事項</label>
+        <textarea id="remarks" placeholder="可填寫當日特殊風險、天候、裝備補充、注意事項等。"></textarea>
+        <div class="hint">
+          這版不再要求輸入 Email。預覽完成後，可直接下載 PDF，或在支援的手機 / 瀏覽器中透過系統分享選單選擇 LINE。
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 60px;">項次</th>
+                <th>安全檢查注意事項</th>
+                <th style="width: 250px;">符合情形 / 項目</th>
+                <th style="width: 240px;">待改進 / 其他</th>
+              </tr>
+            </thead>
+            <tbody id="checklistTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="btn-primary" type="button" id="go-sign-btn">去簽名</button>
+      </div>
+    </section>
+
+    <section class="card hidden" id="step-2">
+      <h2>簽名</h2>
+
+      <div class="sign-grid">
+        <div class="sign-card">
+          <div class="sign-title">
+            <h3>教官簽章</h3>
+            <button class="btn-danger" type="button" id="clearInstructor">清除重簽</button>
+          </div>
+          <div class="sig-box">
+            <canvas id="instructorCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="sign-card">
+          <div class="sign-title">
+            <h3>當日安全官簽章</h3>
+            <button class="btn-danger" type="button" id="clearSafety">清除重簽</button>
+          </div>
+          <div class="sig-box">
+            <canvas id="safetyCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="btn-secondary" type="button" id="backToForm">上一步</button>
+        <button class="btn-primary" type="button" id="goPreview">預覽文件</button>
+      </div>
+    </section>
+
+    <section class="card hidden" id="step-3">
+      <h2>預覽 / 下載 / 分享</h2>
+
+      <div class="preview-sheet" id="previewArea">
+        <div class="preview-title" id="previewTitle">檢核表標題</div>
+
+        <div class="preview-meta">
+          <div><strong>名稱 / 期別：</strong><span id="previewTrainName"></span></div>
+          <div><strong>訓練日期時間：</strong><span id="previewDateTime"></span></div>
+          <div><strong>訓練地點：</strong><span id="previewLocation"></span></div>
+          <div><strong>填表人：</strong><span id="previewFillPerson"></span></div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 60px;">項次</th>
+                <th>安全檢查注意事項</th>
+                <th style="width: 210px;">符合情形 / 項目</th>
+                <th style="width: 220px;">待改進 / 其他</th>
+              </tr>
+            </thead>
+            <tbody id="previewTableBody"></tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <strong>備註：</strong>
+          <div class="preview-remark" id="previewRemarks"></div>
+        </div>
+
+        <div class="preview-signs">
+          <div class="preview-sign-item">
+            <h4>教官簽章：</h4>
+            <img id="previewInstructorSign" class="preview-sign-img" alt="教官簽章" />
+          </div>
+          <div class="preview-sign-item">
+            <h4>當日安全官簽章：</h4>
+            <img id="previewSafetySign" class="preview-sign-img" alt="當日安全官簽章" />
+          </div>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="btn-secondary" type="button" id="backToSign">返回修改</button>
+        <button class="btn-ok" type="button" id="downloadPdfBtn">下載 PDF</button>
+        <button class="btn-primary" type="button" id="shareLineBtn">分享到 LINE</button>
+      </div>
+
+      <div id="shareStatus" class="status info"></div>
+    </section>
+  </div>
+
+  <script>
+    const CHECKLIST_CONFIG = {
+      general: {
+        title: "通用課程檢核表",
+        items: [
+          "訓練場地是否完成安全巡檢",
+          "參訓人員是否完成點名與健康確認",
+          "教官是否完成課程風險提示與安全宣告",
+          "必要防護裝備是否穿戴完整",
+          "器材、裝備與輔具是否功能正常",
+          "通訊、緊急集合及應變流程是否明確",
+          "現場是否配置救護 / 緊急應變能量",
+          "天候、場地濕滑、視線等外在風險是否可控"
+        ]
+      },
+      rope: {
+        title: "繩索救援訓練安全檢核表",
+        items: [
+          "主繩、輔繩、扁帶、鉤環是否檢查完妥",
+          "固定點 / 錨點是否完成安全評估",
+          "個人吊帶、安全帽、手套是否穿戴完成",
+          "下降、上升、轉換操作是否先完成口令確認",
+          "高處下方是否完成淨空與警戒",
+          "指揮、保護、操作分工是否明確",
+          "教官是否逐站確認操作順序及風險",
+          "緊急救援與回收機制是否已備妥"
+        ]
+      },
+      rescueBreak: {
+        title: "救助破壞操作安全檢核表",
+        items: [
+          "破壞工具操作人員是否具備適任能力",
+          "油壓 / 電動工具是否完成外觀與功能檢查",
+          "操作區域是否已完成警戒與淨空",
+          "受力方向、飛散風險及碎片防護是否評估",
+          "參訓人員防護眼罩、手套及安全帽是否到位",
+          "切割 / 撐頂 / 撬開前是否完成口令與位置確認",
+          "現場是否備有滅火器與急救裝備",
+          "訓練後工具是否完成卸壓、斷電與清點"
+        ]
+      },
+      vehicle: {
+        title: "車禍救助訓練操作安全檢核表",
+        items: [
+          "車輛固定、輪擋、斷電等前置措施是否完成",
+          "破壞路徑與患者保護措施是否規劃妥當",
+          "玻璃管理與飛散防護是否落實",
+          "油壓破壞工具是否檢查正常",
+          "指揮、安管、醫療、破壞人員分工是否明確",
+          "周邊危害如油料、尖銳物、電系風險是否控制",
+          "操作口令與停止條件是否宣達",
+          "訓練後器材是否檢整與歸定位"
+        ]
+      },
+      search: {
+        title: "入室搜救訓練安全檢核表",
+        items: [
+          "空氣呼吸器與面罩是否檢查妥當",
+          "進入前是否完成任務、路徑、撤離點說明",
+          "搜索編組與人員數是否符合規定",
+          "低能見度環境之安全管制是否明確",
+          "緊急脫困與失聯處置程序是否宣達",
+          "熱源、障礙物、坍塌風險是否評估",
+          "通訊測試與回報節點是否確認",
+          "教官與安全官是否掌握進出人員資訊"
+        ]
+      },
+      liveFire: {
+        title: "訓練中心實火燃燒檢核表",
+        items: [
+          "燃燒室、排煙、降溫與水源系統是否正常",
+          "學員是否完成熱危害與撤離口令說明",
+          "空氣呼吸器、個人防護裝備是否合格",
+          "安全官、教官、支援水線是否已到位",
+          "訓練負荷、輪替與休息機制是否規劃妥當",
+          "現場是否完成醫療、急救、緊急降溫準備",
+          "進入前是否再次確認人員身體狀況",
+          "訓練後是否完成點名、復原及裝備檢整"
+        ]
+      },
+      diving: {
+        title: "潛水救援訓練安全檢核表",
+        items: [
+          "潛水裝備、氣瓶、調節器是否檢查正常",
+          "水域流速、水深、能見度與水溫是否評估",
+          "潛伴制度、通訊與上浮程序是否確認",
+          "岸上安全官與救援組是否到位",
+          "入水、出水點與警戒範圍是否明確",
+          "參訓人員身體狀況是否適合下水",
+          "緊急失聯、低壓、抽筋等應變措施是否宣達",
+          "訓練後裝備清洗、清點與紀錄是否完成"
+        ]
+      },
+      fitness: {
+        title: "體能訓練安全檢核表",
+        items: [
+          "參訓人員是否完成暖身與活動度準備",
+          "訓練強度是否符合人員狀況與課程安排",
+          "場地、器材與地面是否無明顯危害",
+          "補水、休息、降溫措施是否到位",
+          "舊傷、當日不適人員是否事先掌握",
+          "訓練動作示範與安全提醒是否清楚",
+          "教官是否監控疲勞、頭暈、抽筋等徵象",
+          "訓後是否完成緩和與身體狀況確認"
+        ]
+      },
+      scba: {
+        title: "空氣呼吸器訓練場檢核表",
+        items: [
+          "空呼器瓶壓、面罩密合與警報功能是否正常",
+          "訓練場動線與障礙設置是否安全",
+          "參訓人員是否理解脫困、自救及求援程序",
+          "安全官是否掌握進入人數與時程",
+          "教官是否確認學員身體狀況適訓",
+          "場內通風、照明及緊急停止機制是否妥當",
+          "替換氣瓶、緊急救援裝備是否備妥",
+          "訓練後面罩與設備清潔歸位是否完成"
+        ]
+      },
+      water: {
+        title: "水域訓練安全檢核表",
+        items: [
+          "水域環境、流速、氣候與警戒範圍是否評估",
+          "救生衣、拋繩袋、頭盔等裝備是否完整",
+          "岸上安全監控與通訊機制是否建立",
+          "入水、出水與集合位置是否清楚",
+          "學員身體狀況、游泳能力與分組是否確認",
+          "教官是否完成風險說明與停訓條件宣達",
+          "緊急救援艇 / 救護資源是否可立即運作",
+          "訓後點名與裝備清點是否完成"
+        ]
+      }
+    };
+
+    const typeOptions = [
+      ["general", "通用課程檢核表"],
+      ["rope", "繩索救援訓練安全檢核表"],
+      ["rescueBreak", "救助破壞操作安全檢核表"],
+      ["vehicle", "車禍救助訓練操作安全檢核表"],
+      ["search", "入室搜救訓練安全檢核表"],
+      ["liveFire", "訓練中心實火燃燒檢核表"],
+      ["diving", "潛水救援訓練安全檢核表"],
+      ["fitness", "體能訓練安全檢核表"],
+      ["scba", "空氣呼吸器訓練場檢核表"],
+      ["water", "水域訓練安全檢核表"]
+    ];
+
+    const els = {
+      step1: document.getElementById("step-1"),
+      step2: document.getElementById("step-2"),
+      step3: document.getElementById("step-3"),
+      indicator1: document.getElementById("step-indicator-1"),
+      indicator2: document.getElementById("step-indicator-2"),
+      indicator3: document.getElementById("step-indicator-3"),
+      checklistType: document.getElementById("checklistType"),
+      tableBody: document.getElementById("checklistTableBody"),
+      goSignBtn: document.getElementById("go-sign-btn"),
+      backToForm: document.getElementById("backToForm"),
+      goPreview: document.getElementById("goPreview"),
+      backToSign: document.getElementById("backToSign"),
+      downloadPdfBtn: document.getElementById("downloadPdfBtn"),
+      shareLineBtn: document.getElementById("shareLineBtn"),
+      shareStatus: document.getElementById("shareStatus"),
+
+      trainName: document.getElementById("trainName"),
+      trainDate: document.getElementById("trainDate"),
+      trainTime: document.getElementById("trainTime"),
+      trainLocation: document.getElementById("trainLocation"),
+      fillPerson: document.getElementById("fillPerson"),
+      remarks: document.getElementById("remarks"),
+
+      previewTitle: document.getElementById("previewTitle"),
+      previewTrainName: document.getElementById("previewTrainName"),
+      previewDateTime: document.getElementById("previewDateTime"),
+      previewLocation: document.getElementById("previewLocation"),
+      previewFillPerson: document.getElementById("previewFillPerson"),
+      previewRemarks: document.getElementById("previewRemarks"),
+      previewTableBody: document.getElementById("previewTableBody"),
+      previewInstructorSign: document.getElementById("previewInstructorSign"),
+      previewSafetySign: document.getElementById("previewSafetySign")
+    };
+
+    function populateTypeOptions() {
+      typeOptions.forEach(([value, text]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        els.checklistType.appendChild(option);
+      });
+    }
+
+    function renderChecklistItems() {
+      const config = CHECKLIST_CONFIG[els.checklistType.value];
+      els.tableBody.innerHTML = "";
+
+      config.items.forEach((item, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${escapeHtml(item)}</td>
+          <td>
+            <div class="status-group">
+              <label><input type="radio" name="status_${index}" value="是" checked /> 是</label>
+              <label><input type="radio" name="status_${index}" value="否" /> 否</label>
+              <label><input type="radio" name="status_${index}" value="不適用" /> 不適用</label>
+            </div>
+          </td>
+          <td>
+            <textarea rows="2" class="item-remark" data-index="${index}" placeholder="可填寫待改進事項、現場說明或其他補充"></textarea>
+          </td>
+        `;
+        els.tableBody.appendChild(tr);
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function setStep(step) {
+      [els.step1, els.step2, els.step3].forEach(el => el.classList.add("hidden"));
+      [els.indicator1, els.indicator2, els.indicator3].forEach(el => el.classList.remove("active"));
+
+      if (step === 1) {
+        els.step1.classList.remove("hidden");
+        els.indicator1.classList.add("active");
+      } else if (step === 2) {
+        els.step2.classList.remove("hidden");
+        els.indicator2.classList.add("active");
+      } else {
+        els.step3.classList.remove("hidden");
+        els.indicator3.classList.add("active");
+      }
+    }
+
+    function collectChecklistData() {
+      const config = CHECKLIST_CONFIG[els.checklistType.value];
+      return config.items.map((item, index) => {
+        const statusInput = document.querySelector(`input[name="status_${index}"]:checked`);
+        const remarkInput = document.querySelector(`.item-remark[data-index="${index}"]`);
+        return {
+          no: index + 1,
+          item,
+          status: statusInput ? statusInput.value : "",
+          remark: remarkInput ? remarkInput.value.trim() : ""
+        };
+      });
+    }
+
+    function validateStep1() {
+      if (!els.trainName.value.trim()) {
+        alert("請填寫訓練名稱 / 期別。");
+        els.trainName.focus();
+        return false;
+      }
+      if (!els.trainDate.value) {
+        alert("請填寫訓練日期。");
+        els.trainDate.focus();
+        return false;
+      }
+      if (!els.trainTime.value) {
+        alert("請填寫訓練時間。");
+        els.trainTime.focus();
+        return false;
+      }
+      if (!els.trainLocation.value.trim()) {
+        alert("請填寫訓練地點。");
+        els.trainLocation.focus();
+        return false;
+      }
+      if (!els.fillPerson.value.trim()) {
+        alert("請填寫填表人 / 聯絡人。");
+        els.fillPerson.focus();
+        return false;
+      }
+      return true;
+    }
+
+    function validateSignatures() {
+      if (signaturePads.instructor.isEmpty()) {
+        alert("請先完成教官簽章。");
+        return false;
+      }
+      if (signaturePads.safety.isEmpty()) {
+        alert("請先完成當日安全官簽章。");
+        return false;
+      }
+      return true;
+    }
+
+    function buildPreview() {
+      const config = CHECKLIST_CONFIG[els.checklistType.value];
+      const rows = collectChecklistData();
+
+      els.previewTitle.textContent = config.title;
+      els.previewTrainName.textContent = els.trainName.value.trim();
+      els.previewDateTime.textContent = `${els.trainDate.value} ${els.trainTime.value}`;
+      els.previewLocation.textContent = els.trainLocation.value.trim();
+      els.previewFillPerson.textContent = els.fillPerson.value.trim();
+      els.previewRemarks.textContent = els.remarks.value.trim() || "無";
+
+      els.previewTableBody.innerHTML = rows.map(row => `
+        <tr>
+          <td>${row.no}</td>
+          <td>${escapeHtml(row.item)}</td>
+          <td>${escapeHtml(row.status)}</td>
+          <td>${escapeHtml(row.remark || "")}</td>
+        </tr>
+      `).join("");
+
+      els.previewInstructorSign.src = signaturePads.instructor.toDataURL();
+      els.previewSafetySign.src = signaturePads.safety.toDataURL();
+    }
+
+    class SimpleSignaturePad {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext("2d");
+        this.drawing = false;
+        this.hasStroke = false;
+
+        this.ctx.lineWidth = 2.4;
+        this.ctx.lineCap = "round";
+        this.ctx.lineJoin = "round";
+        this.ctx.strokeStyle = "#111827";
+
+        this.resize();
+        this.bind();
+      }
+
+      resize() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        const rect = this.canvas.getBoundingClientRect();
+        const width = Math.max(rect.width, 320);
+        const height = Math.max(rect.height, 220);
+
+        const current = this.toDataURL();
+
+        this.canvas.width = width * ratio;
+        this.canvas.height = height * ratio;
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.scale(ratio, ratio);
+        this.ctx.lineWidth = 2.4;
+        this.ctx.lineCap = "round";
+        this.ctx.lineJoin = "round";
+        this.ctx.strokeStyle = "#111827";
+        this.clear();
+
+        if (current && current !== "data:,") {
+          const img = new Image();
+          img.onload = () => {
+            this.ctx.drawImage(img, 0, 0, width, height);
+            this.hasStroke = true;
+          };
+          img.src = current;
+        }
+      }
+
+      bind() {
+        const getPos = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const point = e.touches ? e.touches[0] : e;
+          return {
+            x: point.clientX - rect.left,
+            y: point.clientY - rect.top
+          };
+        };
+
+        const start = (e) => {
+          e.preventDefault();
+          this.drawing = true;
+          this.hasStroke = true;
+          const { x, y } = getPos(e);
+          this.ctx.beginPath();
+          this.ctx.moveTo(x, y);
+        };
+
+        const move = (e) => {
+          if (!this.drawing) return;
+          e.preventDefault();
+          const { x, y } = getPos(e);
+          this.ctx.lineTo(x, y);
+          this.ctx.stroke();
+        };
+
+        const end = (e) => {
+          if (!this.drawing) return;
+          e.preventDefault();
+          this.drawing = false;
+          this.ctx.closePath();
+        };
+
+        this.canvas.addEventListener("mousedown", start);
+        this.canvas.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", end);
+
+        this.canvas.addEventListener("touchstart", start, { passive: false });
+        this.canvas.addEventListener("touchmove", move, { passive: false });
+        window.addEventListener("touchend", end, { passive: false });
+      }
+
+      clear() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        this.ctx.clearRect(0, 0, this.canvas.width / ratio, this.canvas.height / ratio);
+        this.hasStroke = false;
+      }
+
+      isEmpty() {
+        return !this.hasStroke;
+      }
+
+      toDataURL() {
+        return this.canvas.toDataURL("image/png");
+      }
+    }
+
+    const signaturePads = {
+      instructor: null,
+      safety: null
+    };
+
+    function setupSignaturePads() {
+      signaturePads.instructor = new SimpleSignaturePad(document.getElementById("instructorCanvas"));
+      signaturePads.safety = new SimpleSignaturePad(document.getElementById("safetyCanvas"));
+
+      window.addEventListener("resize", () => {
+        signaturePads.instructor.resize();
+        signaturePads.safety.resize();
+      });
+
+      document.getElementById("clearInstructor").addEventListener("click", () => signaturePads.instructor.clear());
+      document.getElementById("clearSafety").addEventListener("click", () => signaturePads.safety.clear());
+    }
+
+    function formatFileName() {
+      const typeText = CHECKLIST_CONFIG[els.checklistType.value].title.replace(/[\\/:*?"<>|]/g, "");
+      const dateText = els.trainDate.value || "未填日期";
+      const nameText = (els.trainName.value || "未命名課程").replace(/[\\/:*?"<>|]/g, "");
+      return `${dateText}_${nameText}_${typeText}.pdf`;
+    }
+
+    async function generatePdfBlob() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({
+        orientation: "p",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const rows = collectChecklistData();
+      const title = CHECKLIST_CONFIG[els.checklistType.value].title;
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text(title, pageWidth / 2, 16, { align: "center" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+
+      let y = 26;
+      doc.text(`名稱 / 期別：${els.trainName.value.trim()}`, 14, y);
+      y += 7;
+      doc.text(`訓練日期時間：${els.trainDate.value} ${els.trainTime.value}`, 14, y);
+      y += 7;
+      doc.text(`訓練地點：${els.trainLocation.value.trim()}`, 14, y);
+      y += 7;
+      doc.text(`填表人 / 聯絡人：${els.fillPerson.value.trim()}`, 14, y);
+
+      const body = rows.map(row => [
+        String(row.no),
+        row.item,
+        row.status,
+        row.remark || ""
+      ]);
+
+      doc.autoTable({
+        startY: y + 5,
+        head: [["項次", "安全檢查注意事項", "符合情形 / 項目", "待改進 / 其他"]],
+        body,
+        theme: "grid",
+        styles: {
+          fontSize: 10,
+          cellPadding: 2.2,
+          lineColor: [180, 180, 180],
+          lineWidth: 0.1
+        },
+        headStyles: {
+          fillColor: [15, 118, 110],
+          textColor: [255, 255, 255],
+          fontStyle: "bold"
+        },
+        columnStyles: {
+          0: { cellWidth: 14 },
+          1: { cellWidth: 80 },
+          2: { cellWidth: 32 },
+          3: { cellWidth: 56 }
+        }
+      });
+
+      let afterTableY = doc.lastAutoTable.finalY + 8;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("備註：", 14, afterTableY);
+      doc.setFont("helvetica", "normal");
+
+      const remarkText = els.remarks.value.trim() || "無";
+      const wrappedRemarks = doc.splitTextToSize(remarkText, 180);
+      doc.text(wrappedRemarks, 14, afterTableY + 6);
+
+      afterTableY += 6 + wrappedRemarks.length * 5 + 8;
+
+      const instructorImg = signaturePads.instructor.toDataURL();
+      const safetyImg = signaturePads.safety.toDataURL();
+
+      if (afterTableY > 220) {
+        doc.addPage();
+        afterTableY = 20;
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.text("教官簽章：", 14, afterTableY);
+      doc.text("當日安全官簽章：", 110, afterTableY);
+
+      doc.rect(14, afterTableY + 3, 80, 34);
+      doc.rect(110, afterTableY + 3, 80, 34);
+
+      try {
+        doc.addImage(instructorImg, "PNG", 16, afterTableY + 5, 76, 30, undefined, "FAST");
+      } catch (e) {}
+
+      try {
+        doc.addImage(safetyImg, "PNG", 112, afterTableY + 5, 76, 30, undefined, "FAST");
+      } catch (e) {}
+
+      return doc.output("blob");
+    }
+
+    function downloadBlob(blob, fileName) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function showStatus(message, type = "info") {
+      els.shareStatus.className = `status show ${type}`;
+      els.shareStatus.textContent = message;
+    }
+
+    async function downloadPdf() {
+      try {
+        const blob = await generatePdfBlob();
+        downloadBlob(blob, formatFileName());
+        showStatus("PDF 已下載完成。", "ok");
+      } catch (error) {
+        console.error(error);
+        showStatus("PDF 產製失敗，請再試一次。", "warn");
+      }
+    }
+
+    async function sharePdfToLine() {
+      try {
+        showStatus("正在產製 PDF，稍候將開啟系統分享畫面。", "info");
+
+        const blob = await generatePdfBlob();
+        const fileName = formatFileName();
+        const file = new File([blob], fileName, { type: "application/pdf" });
+
+        const shareData = {
+          files: [file],
+          title: CHECKLIST_CONFIG[els.checklistType.value].title,
+          text: `${els.trainName.value.trim()} - 安全檢核 PDF`
+        };
+
+        if (navigator.canShare && navigator.canShare(shareData)) {
+          await navigator.share(shareData);
+          showStatus("已開啟分享流程；請於系統分享選單中選擇 LINE。", "ok");
+          return;
+        }
+
+        downloadBlob(blob, fileName);
+        showStatus("此裝置或瀏覽器不支援直接分享 PDF，已改為自動下載 PDF，請自行透過 LINE 傳送。", "warn");
+      } catch (error) {
+        console.error(error);
+
+        if (error && error.name === "AbortError") {
+          showStatus("已取消分享。", "warn");
+          return;
+        }
+
+        showStatus("分享失敗，已建議改用下載 PDF 後自行透過 LINE 傳送。", "warn");
+      }
+    }
+
+    function bindEvents() {
+      els.checklistType.addEventListener("change", renderChecklistItems);
+
+      els.goSignBtn.addEventListener("click", () => {
+        if (!validateStep1()) return;
+        setStep(2);
+      });
+
+      els.backToForm.addEventListener("click", () => setStep(1));
+
+      els.goPreview.addEventListener("click", () => {
+        if (!validateSignatures()) return;
+        buildPreview();
+        setStep(3);
+      });
+
+      els.backToSign.addEventListener("click", () => setStep(2));
+      els.downloadPdfBtn.addEventListener("click", downloadPdf);
+      els.shareLineBtn.addEventListener("click", sharePdfToLine);
+    }
+
+    function initDefaults() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      els.trainDate.value = `${yyyy}-${mm}-${dd}`;
+      els.trainTime.value = "09:00";
+    }
+
+    function init() {
+      populateTypeOptions();
+      renderChecklistItems();
+      setupSignaturePads();
+      bindEvents();
+      initDefaults();
+      setStep(1);
+    }
+
+    init();
+  </script>
+</body>
+</html>
