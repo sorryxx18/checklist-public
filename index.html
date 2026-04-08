@@ -424,7 +424,7 @@
             <label>1. 檢核表種類</label>
             <div class="input-group">
                 <i class="fas fa-list"></i>
-                <select id="courseType" onchange="updateItems()">
+                <select id="courseType">
                     <option value="general" selected>1. 通用課程檢核表</option>
                     <option value="rope">2. 繩索救援訓練安全檢核表</option>
                     <option value="rescue">3. 救助破壞操作安全檢核表</option>
@@ -587,20 +587,38 @@
 
     let p1, p2;
     let isLiffInitialized = false;
-    let initAppPromise = null;
-    let cachedPdfBlob = null;
-    let cachedPdfFileName = '';
+    let bootstrapPromise = null;
     let toastTimer = null;
+    let currentStep = 1;
+    let lastRenderedCourseType = null;
+    let signaturePadsBound = false;
     const isLineInAppBrowser = /Line\//i.test(navigator.userAgent || '');
+    const STORAGE_KEY = 'fireTrainingState';
+    const DEFAULT_LOCATION = '內湖訓練中心';
+    const DEFAULT_ANSWER = '是';
+    const appState = {
+        type: 'general',
+        name: '',
+        time: '',
+        loc: DEFAULT_LOCATION,
+        memo: '',
+        answersByType: {},
+        signatures: { instructor: '', safety: '' }
+    };
+
+    function buildShareUrl() {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('openExternalBrowser');
+        currentUrl.searchParams.delete('liff.state');
+        return currentUrl.toString();
+    }
 
     function buildExternalBrowserUrl() {
-        const currentUrl = new URL(window.location.href);
+        const currentUrl = new URL(buildShareUrl());
         const externalUrl = new URL(LIFF_BASE_URL);
 
         currentUrl.searchParams.forEach((value, key) => {
-            if (key !== 'liff.state') {
-                externalUrl.searchParams.set(key, value);
-            }
+            externalUrl.searchParams.set(key, value);
         });
         externalUrl.searchParams.set('openExternalBrowser', '1');
 
@@ -617,12 +635,8 @@
 
         toast.textContent = message;
         toast.classList.add('show');
-        if (toastTimer) {
-            clearTimeout(toastTimer);
-        }
-        toastTimer = setTimeout(() => {
-            toast.classList.remove('show');
-        }, 2600);
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
     }
 
     function showInlineBrowserGuide() {
@@ -630,23 +644,16 @@
 
         const guideCard = document.getElementById('browserGuideCard');
         const externalLink = document.getElementById('externalBrowserLink');
-        const externalUrl = buildExternalBrowserUrl();
-
         if (externalLink) {
-            externalLink.href = externalUrl;
+            externalLink.href = buildExternalBrowserUrl();
             externalLink.textContent = '點我直接用外部瀏覽器開啟';
         }
-
-        if (guideCard) {
-            guideCard.classList.add('show');
-        }
+        if (guideCard) guideCard.classList.add('show');
     }
 
     function hideInlineBrowserGuide() {
         const guideCard = document.getElementById('browserGuideCard');
-        if (guideCard) {
-            guideCard.classList.remove('show');
-        }
+        if (guideCard) guideCard.classList.remove('show');
     }
 
     function retryOpenExternalBrowser() {
@@ -669,128 +676,12 @@
         await copyTextWithFeedback(buildExternalBrowserUrl(), '已複製外部開啟連結。', '複製失敗，請手動長按下方連結複製。');
     }
 
+    async function copyCurrentLink() {
+        await copyTextWithFeedback(buildShareUrl(), '已複製分享連結。', '複製失敗，請改用 Safari、Chrome 或手動複製連結。');
+    }
+
     function showInlineMessage(message) {
         showToast(message);
-    }
-
-    function bindStatePersistence() {
-        ['trainName', 'trainTime', 'trainLoc', 'memo', 'courseType'].forEach((id) => {
-            const field = document.getElementById(id);
-            if (!field) return;
-            field.addEventListener('change', () => {
-                if (id === 'trainTime') {
-                    ensureCurrentTime();
-                    return;
-                }
-                saveState();
-            });
-            field.addEventListener('input', () => {
-                if (id === 'trainTime') {
-                    ensureCurrentTime();
-                    return;
-                }
-                saveState();
-            });
-        });
-    }
-
-    async function initApp() {
-        if (initAppPromise) {
-            return initAppPromise;
-        }
-
-        initAppPromise = (async () => {
-            if (isLiffInitialized) {
-                return;
-            }
-
-            try {
-                await liff.init({ liffId: MY_LIFF_ID });
-                isLiffInitialized = true;
-
-            if (liff.isInClient() && !liff.isLoggedIn()) {
-                liff.login();
-                return;
-            }
-
-            if (liff.isInClient()) {
-                document.querySelector('.app-header').classList.add('hidden');
-                document.querySelector('.app-shell').style.borderRadius = '0';
-                document.querySelector('.app-shell').style.height = '100%';
-            }
-            } catch (e) {
-                console.error("LIFF Init Error", e);
-            }
-
-            if (isLineInAppBrowser) {
-                showInlineBrowserGuide();
-            } else {
-                hideInlineBrowserGuide();
-            }
-
-            bindStatePersistence();
-            loadState();
-
-            const fullUrl = window.location.href;
-            const match = fullUrl.match(/[?&]course=([^&#]*)/);
-            if (match) {
-                const courseValue = decodeURIComponent(match[1]);
-                setTimeout(() => {
-                    const trainField = document.getElementById('trainName');
-                    if (trainField) {
-                        trainField.value = courseValue;
-                        saveState();
-                    }
-                }, 200);
-            }
-
-            updateItems();
-            setDefaultTime();
-        })();
-
-        return initAppPromise;
-    }
-    
-    function saveState() {
-        if (!window.localStorage) return;
-        
-        const state = {
-            type: document.getElementById('courseType').value,
-            name: document.getElementById('trainName').value,
-            time: document.getElementById('trainTime').value,
-            loc: document.getElementById('trainLoc').value,
-            memo: document.getElementById('memo').value,
-            answers: []
-        };
-
-        const hiddenInputs = document.querySelectorAll('input[type="hidden"]');
-        hiddenInputs.forEach((input, index) => {
-            state.answers.push({ idx: index, val: input.value });
-        });
-
-        localStorage.setItem('fireTrainingState', JSON.stringify(state));
-    }
-
-    function loadState() {
-        const saved = localStorage.getItem('fireTrainingState');
-        if (!saved) return;
-
-        try {
-            const state = JSON.parse(saved);
-            document.getElementById('courseType').value = state.type || 'general';
-            document.getElementById('trainName').value = state.name || '';
-            document.getElementById('trainTime').value = state.time || '';
-            document.getElementById('trainLoc').value = state.loc || '內湖訓練中心';
-            document.getElementById('memo').value = state.memo || '';
-            window.savedAnswers = state.answers;
-            ensureCurrentTime({ syncState: false });
-        } catch (e) {
-            console.error("Load state error", e);
-        }
-    }
-
-    function clearState() {
-        localStorage.removeItem('fireTrainingState');
     }
 
     function getCurrentLocalDateTimeValue() {
@@ -799,67 +690,156 @@
         return now.toISOString().slice(0, 16);
     }
 
-    function ensureCurrentTime(options = {}) {
-        const { force = false, syncState = true } = options;
+    function ensureInitialTimeValue() {
         const trainTimeInput = document.getElementById('trainTime');
         if (!trainTimeInput) return;
-
-        const currentValue = (trainTimeInput.value || '').trim();
-        if (force || !currentValue) {
+        if (!(trainTimeInput.value || '').trim()) {
             trainTimeInput.value = getCurrentLocalDateTimeValue();
-        }
-
-        if (syncState) {
-            saveState();
+            appState.time = trainTimeInput.value;
+            persistState();
         }
     }
 
-    function setDefaultTime() {
-        ensureCurrentTime();
-    }
-
-    function updateItems() {
+    function getCurrentAnswersFromDom() {
         const type = document.getElementById('courseType').value;
-        const data = checklists[type];
-        const list = document.getElementById('cardList');
-        list.innerHTML = "";
-        
-        data.items.forEach((txt, i) => {
-            let defaultVal = '是';
-            if (window.savedAnswers && window.savedAnswers[i]) {
-                defaultVal = window.savedAnswers[i].val;
-            }
+        const items = checklists[type]?.items || [];
+        return items.map((_, index) => {
+            const input = document.getElementById(`val_${index}`);
+            return input?.value || DEFAULT_ANSWER;
+        });
+    }
 
+    function getAnswersForType(type) {
+        const items = checklists[type]?.items || [];
+        const savedAnswers = Array.isArray(appState.answersByType[type]) ? appState.answersByType[type] : [];
+        return items.map((_, index) => savedAnswers[index] || DEFAULT_ANSWER);
+    }
+
+    function syncFormToState() {
+        appState.type = document.getElementById('courseType').value;
+        appState.name = document.getElementById('trainName').value.trim();
+        appState.time = document.getElementById('trainTime').value;
+        appState.loc = document.getElementById('trainLoc').value.trim() || DEFAULT_LOCATION;
+        appState.memo = document.getElementById('memo').value;
+        appState.answersByType[appState.type] = getCurrentAnswersFromDom();
+        appState.signatures.instructor = p1 && !p1.isEmpty() ? p1.toDataURL() : (appState.signatures.instructor || '');
+        appState.signatures.safety = p2 && !p2.isEmpty() ? p2.toDataURL() : (appState.signatures.safety || '');
+    }
+
+    function persistState() {
+        if (!window.localStorage) return;
+        syncFormToState();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    }
+
+    function clearState() {
+        localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function loadState() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return;
+
+        try {
+            const parsed = JSON.parse(saved);
+            appState.type = parsed.type || 'general';
+            appState.name = parsed.name || '';
+            appState.time = parsed.time || '';
+            appState.loc = parsed.loc || DEFAULT_LOCATION;
+            appState.memo = parsed.memo || '';
+            appState.answersByType = parsed.answersByType || {};
+            if (!appState.answersByType[appState.type] && Array.isArray(parsed.answers)) {
+                appState.answersByType[appState.type] = parsed.answers.map(item => item?.val || DEFAULT_ANSWER);
+            }
+            appState.signatures = {
+                instructor: parsed.signatures?.instructor || parsed.sig1 || '',
+                safety: parsed.signatures?.safety || parsed.sig2 || ''
+            };
+        } catch (error) {
+            console.error('Load state error', error);
+        }
+    }
+
+    function applyStateToForm() {
+        document.getElementById('courseType').value = appState.type || 'general';
+        document.getElementById('trainName').value = appState.name || '';
+        document.getElementById('trainTime').value = appState.time || '';
+        document.getElementById('trainLoc').value = appState.loc || DEFAULT_LOCATION;
+        document.getElementById('memo').value = appState.memo || '';
+    }
+
+    function bindStatePersistence() {
+        ['trainName', 'trainTime', 'trainLoc', 'memo'].forEach((id) => {
+            const field = document.getElementById(id);
+            if (!field) return;
+            ['change', 'input'].forEach((eventName) => field.addEventListener(eventName, persistState));
+        });
+
+        const courseTypeField = document.getElementById('courseType');
+        if (courseTypeField) {
+            courseTypeField.addEventListener('change', (event) => {
+                persistState();
+                updateItems(event.target.value);
+            });
+        }
+    }
+
+    function updateItems(nextType = document.getElementById('courseType').value) {
+        if (lastRenderedCourseType) {
+            appState.answersByType[lastRenderedCourseType] = getCurrentAnswersFromDom();
+        }
+
+        const type = nextType;
+        const data = checklists[type];
+        const answers = getAnswersForType(type);
+        const list = document.getElementById('cardList');
+        list.innerHTML = '';
+
+        data.items.forEach((txt, i) => {
+            const value = answers[i] || DEFAULT_ANSWER;
             const card = document.createElement('div');
             card.className = 'q-card';
             card.innerHTML = `
-                <div class="q-text">${i+1}. ${txt}</div>
+                <div class="q-text">${i + 1}. ${txt}</div>
                 <div class="opt-group">
-                    <div class="opt-btn yes ${defaultVal==='是'?'selected':''}" id="opt_${i}_是" onclick="selectOpt(${i},'是')">是</div>
-                    <div class="opt-btn no ${defaultVal==='否'?'selected':''}" id="opt_${i}_否" onclick="selectOpt(${i},'否')">否</div>
-                    <div class="opt-btn na ${defaultVal==='不適用'?'selected':''}" id="opt_${i}_不適用" onclick="selectOpt(${i},'不適用')">不適用</div>
+                    <div class="opt-btn yes ${value === '是' ? 'selected' : ''}" id="opt_${i}_是" onclick="selectOpt(${i}, '是')">是</div>
+                    <div class="opt-btn no ${value === '否' ? 'selected' : ''}" id="opt_${i}_否" onclick="selectOpt(${i}, '否')">否</div>
+                    <div class="opt-btn na ${value === '不適用' ? 'selected' : ''}" id="opt_${i}_不適用" onclick="selectOpt(${i}, '不適用')">不適用</div>
                 </div>
-                <input type="hidden" id="val_${i}" value="${defaultVal}">
+                <input type="hidden" id="val_${i}" value="${value}">
             `;
             list.appendChild(card);
         });
-        saveState();
+
+        lastRenderedCourseType = type;
+        appState.type = type;
+        appState.answersByType[type] = answers;
+        persistState();
     }
 
     function selectOpt(idx, val) {
-        ['是','否','不適用'].forEach(o => {
-            document.getElementById(`opt_${idx}_${o}`).classList.remove('selected');
+        ['是', '否', '不適用'].forEach((option) => {
+            document.getElementById(`opt_${idx}_${option}`).classList.remove('selected');
         });
         document.getElementById(`opt_${idx}_${val}`).classList.add('selected');
         document.getElementById(`val_${idx}`).value = val;
-        saveState();
+        appState.answersByType[document.getElementById('courseType').value] = getCurrentAnswersFromDom();
+        persistState();
+    }
+
+    function showStep(stepNumber) {
+        currentStep = stepNumber;
+        document.querySelectorAll('.step').forEach((step) => step.classList.remove('active'));
+        document.getElementById(`step${stepNumber}`).classList.add('active');
+        if (stepNumber === 3) {
+            requestAnimationFrame(() => initCanvas());
+        }
+        window.scrollTo(0, 0);
     }
 
     function goStep(n) {
-        ensureCurrentTime();
-
-        if (n === 2) {
-            if (!document.getElementById('trainName').value) {
+        if (n > 1) {
+            if (!document.getElementById('trainName').value.trim()) {
                 showInlineMessage('請先輸入訓練名稱。');
                 return;
             }
@@ -869,120 +849,176 @@
             }
         }
 
-        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-        document.getElementById('step' + n).classList.add('active');
+        persistState();
+        showStep(n);
+    }
 
-        if (n === 3) {
-            requestAnimationFrame(() => initCanvas());
+    function bindSignaturePad(pad, key) {
+        if (!pad || pad.__stateBound) return;
+        const saveSignature = () => {
+            appState.signatures[key] = pad.isEmpty() ? '' : pad.toDataURL();
+            persistState();
+        };
+        pad.addEventListener('endStroke', saveSignature);
+        pad.__stateBound = true;
+    }
+
+    function restoreSignature(pad, dataUrl) {
+        if (!pad) return;
+        pad.clear();
+        if (dataUrl) {
+            pad.fromDataURL(dataUrl, { ratio: Math.max(window.devicePixelRatio || 1, 1) });
         }
-        saveState();
-        window.scrollTo(0, 0);
     }
 
     function initCanvas() {
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
-        const canvases = [
-            { id: 'c1', pad: null }, 
-            { id: 'c2', pad: null }
+        const configs = [
+            { canvasId: 'c1', stateKey: 'instructor', assign: (pad) => { p1 = pad; } },
+            { canvasId: 'c2', stateKey: 'safety', assign: (pad) => { p2 = pad; } }
         ];
 
-        canvases.forEach((obj, index) => {
-            const c = document.getElementById(obj.id);
-            const container = c.parentElement;
-            if (!c || !container) return;
+        configs.forEach(({ canvasId, stateKey, assign }) => {
+            const canvas = document.getElementById(canvasId);
+            const container = canvas?.parentElement;
+            if (!canvas || !container) return;
 
-            c.width = container.offsetWidth * ratio;
-            c.height = container.offsetHeight * ratio;
-            
-            const ctx = c.getContext("2d");
+            const width = container.offsetWidth;
+            const height = container.offsetHeight;
+            canvas.width = width * ratio;
+            canvas.height = height * ratio;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.scale(ratio, ratio);
-            
-            const pad = new SignaturePad(c, {
-                minWidth: 1.5,
-                maxWidth: 2.5,
-                penColor: 'rgb(0, 0, 0)',
-                backgroundColor: 'rgba(255, 255, 255, 0)'
-            });
-            
-            if (index === 0) p1 = pad;
-            if (index === 1) p2 = pad;
 
-            c.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
-            c.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+            let pad = canvas.__signaturePad;
+            if (!pad) {
+                pad = new SignaturePad(canvas, {
+                    minWidth: 1.5,
+                    maxWidth: 2.5,
+                    penColor: 'rgb(0, 0, 0)',
+                    backgroundColor: 'rgba(255, 255, 255, 0)'
+                });
+                canvas.__signaturePad = pad;
+                canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+                canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+            } else {
+                pad.clear();
+                pad.off();
+                pad.on();
+            }
+
+            bindSignaturePad(pad, stateKey);
+            restoreSignature(pad, appState.signatures[stateKey]);
+            assign(pad);
         });
+
+        if (!signaturePadsBound) {
+            window.addEventListener('resize', () => {
+                if (currentStep === 3) initCanvas();
+            });
+            signaturePadsBound = true;
+        }
     }
 
     function clearSig(n) {
-        if (n === 1 && p1) p1.clear();
-        if (n === 2 && p2) p2.clear();
-        saveState();
+        if (n === 1 && p1) {
+            p1.clear();
+            appState.signatures.instructor = '';
+        }
+        if (n === 2 && p2) {
+            p2.clear();
+            appState.signatures.safety = '';
+        }
+        persistState();
+    }
+
+    function getSignatureDataUrl(pad, fallback = '') {
+        if (!pad) return fallback;
+        return pad.isEmpty() ? fallback : pad.toDataURL();
+    }
+
+    function buildPdfDateDisplay(timeVal) {
+        if (!timeVal) return '時間：未填寫';
+        const [datePart = '', timePart = ''] = timeVal.split('T');
+        const [y, m, d] = (datePart || '').split('-');
+        const [hh = '', mm = ''] = (timePart || '').split(':');
+        if (!(y && m && d)) return `時間：${timeVal}`;
+        return `時間：${Number(y) - 1911} 年 ${m} 月 ${d} 日 ${hh}：${mm}`;
     }
 
     function fillTemplate() {
-        ensureCurrentTime();
-
         const type = document.getElementById('courseType').value;
         const data = checklists[type];
         const timeVal = document.getElementById('trainTime').value;
-        const [datePart = '', timePart = ''] = timeVal.split('T');
-        const [y, m, d] = (datePart || '').split('-');
-        const [hh, mm] = (timePart || '').split(':');
 
         document.getElementById('pdfTitle').innerText = data.title;
         document.getElementById('pdfCourseName').innerText = document.getElementById('trainName').value;
-        document.getElementById('pdfDateDisplay').innerText = `時間：${y-1911} 年 ${m} 月 ${d} 日 ${hh}：${mm}`;
-        document.getElementById('pdfLocDisplay').innerText = "地點：" + document.getElementById('trainLoc').value;
-        document.getElementById('pdfMemo').innerText = "備註：" + document.getElementById('memo').value;
-        
-        document.getElementById('img1').src = p1.toDataURL();
-        document.getElementById('img2').src = p2.toDataURL();
+        document.getElementById('pdfDateDisplay').innerText = buildPdfDateDisplay(timeVal);
+        document.getElementById('pdfLocDisplay').innerText = '地點：' + document.getElementById('trainLoc').value;
+        document.getElementById('pdfMemo').innerText = '備註：' + document.getElementById('memo').value;
+        document.getElementById('img1').src = getSignatureDataUrl(p1, appState.signatures.instructor);
+        document.getElementById('img2').src = getSignatureDataUrl(p2, appState.signatures.safety);
 
         const tbody = document.getElementById('pdfTbody');
-        tbody.innerHTML = "";
+        tbody.innerHTML = '';
         data.items.forEach((txt, i) => {
             const v = document.getElementById(`val_${i}`).value;
-            const row = `
+            tbody.innerHTML += `
                 <tr>
-                    <td>${i+1}</td>
+                    <td>${i + 1}</td>
                     <td class="pdf-left">${txt}</td>
-                    <td class="v-mark">${v==='是'?'V':''}</td>
-                    <td class="v-mark">${v==='否'?'V':''}</td>
-                    <td class="v-mark">${v==='不適用'?'V':''}</td>
+                    <td class="v-mark">${v === '是' ? 'V' : ''}</td>
+                    <td class="v-mark">${v === '否' ? 'V' : ''}</td>
+                    <td class="v-mark">${v === '不適用' ? 'V' : ''}</td>
                     <td></td>
                     <td></td>
                 </tr>
             `;
-            tbody.innerHTML += row;
         });
     }
 
-    async function showPreview() {
+    function validateBeforeOutput() {
+        if (!document.getElementById('trainName').value.trim()) {
+            showInlineMessage('請先輸入訓練名稱。');
+            return false;
+        }
+        if (!document.getElementById('trainTime').value) {
+            showInlineMessage('請先選擇訓練時間。');
+            return false;
+        }
         if (!p1 || !p2 || p1.isEmpty() || p2.isEmpty()) {
             showInlineMessage('請完成教官與安全官雙人簽名。');
-            return;
+            return false;
         }
-        
+        return true;
+    }
+
+    async function showPreview() {
+        if (!validateBeforeOutput()) return;
+
         document.getElementById('loader').style.display = 'flex';
-        document.getElementById('loaderText').innerText = "產生預覽中...";
-        
+        document.getElementById('loaderText').innerText = '產生預覽中...';
         fillTemplate();
-        
+
         setTimeout(async () => {
             try {
                 const target = document.getElementById('pdfTemplate');
-                const canvas = await html2canvas(target, { 
-                    scale: 3, 
-                    width: 800, 
-                    windowWidth: 900, 
+                const canvas = await html2canvas(target, {
+                    scale: 3,
+                    width: 800,
+                    windowWidth: 900,
                     useCORS: true,
                     backgroundColor: '#ffffff'
                 });
-                
                 document.getElementById('previewImg').src = canvas.toDataURL('image/jpeg', 0.9);
                 document.getElementById('previewModal').style.display = 'flex';
-                saveState();
-            } catch (err) {
-                console.error(err);
+                persistState();
+            } catch (error) {
+                console.error(error);
                 showInlineMessage('預覽產生失敗，請再試一次。');
             } finally {
                 document.getElementById('loader').style.display = 'none';
@@ -990,9 +1026,9 @@
         }, 100);
     }
 
-    function closePreview() { 
-        document.getElementById('previewModal').style.display = 'none'; 
-        saveState();
+    function closePreview() {
+        document.getElementById('previewModal').style.display = 'none';
+        persistState();
     }
 
     function sanitizeFileNamePart(value, fallback = '未命名') {
@@ -1004,9 +1040,8 @@
     }
 
     function buildPdfFileName() {
-        ensureCurrentTime();
-        const timeValue = document.getElementById('trainTime').value || getCurrentLocalDateTimeValue();
-        const [datePart = '', timePart = ''] = timeValue.split('T');
+        const timeValue = document.getElementById('trainTime').value;
+        const [datePart = '', timePart = ''] = (timeValue || '').split('T');
         const ymd = (datePart || '').replace(/-/g, '') || '未填時間';
         const hm = (timePart || '').slice(0, 5).replace(/:/g, '') || '0000';
         const courseName = sanitizeFileNamePart(document.getElementById('trainName').value, '訓練安全檢核表');
@@ -1015,23 +1050,22 @@
 
     async function generateFinalPDFBlob() {
         fillTemplate();
-
         const target = document.getElementById('pdfTemplate');
-        const canvas = await html2canvas(target, { 
-            scale: 3, 
-            width: 800, 
+        const canvas = await html2canvas(target, {
+            scale: 3,
+            width: 800,
             windowWidth: 800,
-            useCORS: true
+            useCORS: true,
+            backgroundColor: '#ffffff'
         });
-        
+
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
-        
         const imgWidth = 210;
         const pageHeight = 297;
         const ratio = canvas.height / canvas.width;
         const imgHeight = imgWidth * ratio;
-        
+
         if (imgHeight > pageHeight - 20) {
             const scale = (pageHeight - 20) / imgHeight;
             const scaledWidth = imgWidth * scale;
@@ -1042,18 +1076,19 @@
             pdf.addImage(canvas.toDataURL('image/jpeg', 1.0), 'JPEG', 0, 10, imgWidth, imgHeight);
         }
 
-        const fileName = buildPdfFileName();
-        const pdfBlob = pdf.output('blob');
-        cachedPdfBlob = pdfBlob;
-        cachedPdfFileName = fileName;
-
-        return { pdf, pdfBlob, fileName };
+        return {
+            pdf,
+            pdfBlob: pdf.output('blob'),
+            fileName: buildPdfFileName()
+        };
     }
 
     async function downloadPDF() {
+        if (!validateBeforeOutput()) return;
+
         try {
             document.getElementById('loader').style.display = 'flex';
-            document.getElementById('loaderText').innerText = "產生 PDF 中...";
+            document.getElementById('loaderText').innerText = '產生 PDF 中...';
             const { pdf, fileName } = await generateFinalPDFBlob();
             pdf.save(fileName);
         } catch (error) {
@@ -1065,7 +1100,6 @@
     }
 
     function buildShareText() {
-        ensureCurrentTime();
         const courseType = document.getElementById('courseType');
         const typeText = courseType.options[courseType.selectedIndex]?.text || '通用課程檢核表';
         const trainName = document.getElementById('trainName').value || '未命名訓練';
@@ -1073,40 +1107,31 @@
         const trainLoc = document.getElementById('trainLoc').value || '未填寫地點';
 
         return [
-            `【訓練安全檢核表】`,
+            '【訓練安全檢核表】',
             `課程：${typeText}`,
             `訓練名稱：${trainName}`,
             `時間：${trainTime}`,
-            `地點：${trainLoc}`,
-            '',
-            buildExternalBrowserUrl()
+            `地點：${trainLoc}`
         ].join('\n');
     }
 
-    async function copyCurrentLink() {
-        await copyTextWithFeedback(
-            buildExternalBrowserUrl(),
-            '已複製分享連結。',
-            '複製失敗，請改用 Safari、Chrome 或手動複製連結。'
-        );
-    }
-
     async function finalSubmit() {
+        if (!validateBeforeOutput()) return;
+
         document.getElementById('loader').style.display = 'flex';
         document.getElementById('loaderText').innerText = '準備分享中...';
 
         const shareText = buildShareText();
-        const shareUrl = buildExternalBrowserUrl();
+        const shareUrl = buildShareUrl();
         const shareTitle = document.getElementById('trainName').value || '訓練安全檢核表';
 
         try {
             const { pdfBlob, fileName } = await generateFinalPDFBlob();
             const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('previewModal').style.display = 'none';
 
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('previewModal').style.display = 'none';
-
                 await navigator.share({
                     title: shareTitle,
                     text: shareText,
@@ -1116,36 +1141,74 @@
                 return;
             }
 
-            throw new Error('FILE_SHARE_NOT_SUPPORTED');
+            if (navigator.share) {
+                await navigator.share({
+                    title: shareTitle,
+                    text: shareText,
+                    url: shareUrl
+                });
+                clearState();
+                return;
+            }
+
+            throw new Error('SHARE_NOT_SUPPORTED');
         } catch (error) {
-            try {
-                if (navigator.share) {
-                    document.getElementById('loader').style.display = 'none';
-                    document.getElementById('previewModal').style.display = 'none';
-
-                    await navigator.share({
-                        title: shareTitle,
-                        text: shareText,
-                        url: shareUrl
-                    });
-                    clearState();
-                    return;
-                }
-            } catch (fallbackError) {
-                // 改走簡短提示，不顯示技術細節
-            }
-
-            document.getElementById('loader').style.display = 'none';
+            console.error(error);
             showInlineMessage('分享失敗，請改用 Safari、Chrome 或外部瀏覽器再試。');
-            if (isLineInAppBrowser) {
-                showInlineBrowserGuide();
-            }
+            if (isLineInAppBrowser) showInlineBrowserGuide();
         } finally {
             document.getElementById('loader').style.display = 'none';
         }
     }
 
-    window.onload = initApp;
+    function applyCourseNameFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const courseName = params.get('course');
+        if (!courseName || document.getElementById('trainName').value.trim()) return;
+        document.getElementById('trainName').value = courseName;
+        persistState();
+    }
+
+    async function initLiffIfNeeded() {
+        if (isLiffInitialized || typeof liff === 'undefined') return;
+        try {
+            await liff.init({ liffId: MY_LIFF_ID });
+            isLiffInitialized = true;
+            if (liff.isInClient() && !liff.isLoggedIn()) {
+                liff.login();
+                return;
+            }
+            if (liff.isInClient()) {
+                document.querySelector('.app-header').classList.add('hidden');
+                document.querySelector('.app-shell').style.borderRadius = '0';
+                document.querySelector('.app-shell').style.height = '100%';
+            }
+        } catch (error) {
+            console.error('LIFF Init Error', error);
+        }
+    }
+
+    async function initApp() {
+        await initLiffIfNeeded();
+        if (isLineInAppBrowser) showInlineBrowserGuide();
+        else hideInlineBrowserGuide();
+
+        loadState();
+        applyStateToForm();
+        bindStatePersistence();
+        ensureInitialTimeValue();
+        applyCourseNameFromQuery();
+        updateItems(appState.type);
+        showStep(currentStep);
+    }
+
+    async function bootstrapApp() {
+        if (bootstrapPromise) return bootstrapPromise;
+        bootstrapPromise = initApp();
+        return bootstrapPromise;
+    }
+
+    window.addEventListener('load', bootstrapApp);
 </script>
 </body>
 </html>
