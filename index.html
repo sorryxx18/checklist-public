@@ -414,8 +414,8 @@
                 <i class="fas fa-up-right-from-square"></i> 再試一次外部開啟
             </button>
         </div>
-        <a id="externalBrowserLink" class="browser-guide-link" href="#" target="_blank" rel="noopener noreferrer"></a>
-        <div class="browser-guide-hint">不會自動複製連結，避免又被奇怪權限或瀏覽器政策卡住。</div>
+        <a id="externalBrowserLink" class="browser-guide-link" href="#" target="_blank" rel="noopener noreferrer">點我用外部瀏覽器開啟（乾淨連結）</a>
+        <div class="browser-guide-hint">下方只提供乾淨連結，不會把一長串參數直接攤在畫面上。</div>
     </div>
 
     <div class="content">
@@ -591,11 +591,11 @@
     let cachedPdfFileName = '';
     let toastTimer = null;
     const isLineInAppBrowser = /Line\//i.test(navigator.userAgent || '');
+    const CLEAN_EXTERNAL_BROWSER_URL = 'https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1';
+    const CLEAN_EXTERNAL_BROWSER_LABEL = 'https://sorryxx18.github.io/checklist-public/';
 
     function buildExternalBrowserUrl() {
-        const url = new URL(window.location.href);
-        url.searchParams.set('openExternalBrowser', '1');
-        return url.toString();
+        return CLEAN_EXTERNAL_BROWSER_URL;
     }
 
     function shouldAttemptExternalBrowserRedirect() {
@@ -626,7 +626,7 @@
 
         if (externalLink) {
             externalLink.href = externalUrl;
-            externalLink.textContent = externalUrl;
+            externalLink.textContent = `外部開啟短連結：${CLEAN_EXTERNAL_BROWSER_LABEL}`;
         }
 
         if (guideCard) {
