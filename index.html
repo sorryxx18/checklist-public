@@ -32,6 +32,10 @@
             --banner-bg: #fdecea;
             --banner-border: #e74c3c;
             --banner-text: #922b21;
+            --line-card-bg: #eefaf3;
+            --line-card-border: #2ecc71;
+            --line-card-text: #1e5631;
+            --toast-bg: rgba(44, 62, 80, 0.92);
         }
         
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -93,6 +97,90 @@
             margin-bottom: 2px;
         }
 
+        .browser-guide-card {
+            display: none;
+            margin: 16px 20px 0 20px;
+            padding: 16px;
+            border: 1px solid var(--line-card-border);
+            border-left: 5px solid var(--line-card-border);
+            border-radius: 14px;
+            background: var(--line-card-bg);
+            color: var(--line-card-text);
+            box-shadow: 0 8px 20px rgba(46, 204, 113, 0.12);
+            flex-shrink: 0;
+        }
+
+        .browser-guide-card.show {
+            display: block;
+        }
+
+        .browser-guide-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: #145a32;
+        }
+
+        .browser-guide-card p,
+        .browser-guide-card li {
+            margin: 0;
+            font-size: 0.92rem;
+            line-height: 1.65;
+        }
+
+        .browser-guide-card ul {
+            margin: 10px 0 0 18px;
+            padding: 0;
+        }
+
+        .browser-guide-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .browser-guide-link {
+            display: block;
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.8);
+            color: #145a32;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            word-break: break-all;
+            text-decoration: none;
+        }
+
+        .browser-guide-hint {
+            margin-top: 10px;
+            font-size: 0.84rem;
+            opacity: 0.9;
+        }
+
+        .toast-message {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%) translateY(20px);
+            min-width: 220px;
+            max-width: calc(100vw - 32px);
+            padding: 12px 16px;
+            border-radius: 999px;
+            background: var(--toast-bg);
+            color: #fff;
+            font-size: 0.9rem;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 100001;
+        }
+
+        .toast-message.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
 
         .content { 
             padding: 20px; 
@@ -222,6 +310,7 @@
         .btn-next { background: var(--fire-red); }
         .btn-prev { background: #7f8c8d; }
         .btn-copy { background: #8e44ad; }
+        .btn-external { background: #16a085; }
 
         #loader { 
             display: none; 
@@ -308,6 +397,25 @@
     <div class="top-notice">
         <strong>⚠ 最佳使用方式</strong>
         建議使用 Chrome 或 Safari 開啟本系統，以確保分享與下載功能正常運作。
+    </div>
+
+    <div id="browserGuideCard" class="browser-guide-card" aria-live="polite">
+        <h3><i class="fab fa-line"></i> 目前偵測為 LINE 內建瀏覽器</h3>
+        <p>LINE 內建瀏覽器常會擋住 PDF 下載或分享檔案。建議改用 <strong>Safari</strong> 或 <strong>Chrome</strong> 開啟，功能會穩定很多。</p>
+        <ul>
+            <li>可先點下方按鈕，再嘗試跳轉到外部瀏覽器。</li>
+            <li>如果還是留在 LINE，請改用右上角選單，選擇「在 Safari 開啟」或「在 Chrome 開啟」。</li>
+        </ul>
+        <div class="browser-guide-actions">
+            <button class="btn btn-copy" type="button" onclick="copyExternalOpenLink()">
+                <i class="fas fa-copy"></i> 複製外部開啟連結
+            </button>
+            <button class="btn btn-external" type="button" onclick="retryOpenExternalBrowser()">
+                <i class="fas fa-up-right-from-square"></i> 再試一次外部開啟
+            </button>
+        </div>
+        <a id="externalBrowserLink" class="browser-guide-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+        <div class="browser-guide-hint">不會自動複製連結，避免又被奇怪權限或瀏覽器政策卡住。</div>
     </div>
 
     <div class="content">
@@ -414,6 +522,8 @@
     </div>
 </div>
 
+<div id="toastMessage" class="toast-message" aria-live="polite"></div>
+
 <!-- PDF Template -->
 <div id="pdfTemplate">
     <div class="pdf-title" id="pdfTitle">檢核表標題</div>
@@ -479,8 +589,88 @@
     let isLiffInitialized = false;
     let cachedPdfBlob = null;
     let cachedPdfFileName = '';
+    let toastTimer = null;
+    const isLineInAppBrowser = /Line\//i.test(navigator.userAgent || '');
+
+    function buildExternalBrowserUrl() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('openExternalBrowser', '1');
+        return url.toString();
+    }
+
+    function shouldAttemptExternalBrowserRedirect() {
+        const url = new URL(window.location.href);
+        return isLineInAppBrowser && url.searchParams.get('openExternalBrowser') !== '1';
+    }
+
+    function showToast(message) {
+        const toast = document.getElementById('toastMessage');
+        if (!toast) return;
+
+        toast.textContent = message;
+        toast.classList.add('show');
+        if (toastTimer) {
+            clearTimeout(toastTimer);
+        }
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 2600);
+    }
+
+    function showInlineBrowserGuide() {
+        if (!isLineInAppBrowser) return;
+
+        const guideCard = document.getElementById('browserGuideCard');
+        const externalLink = document.getElementById('externalBrowserLink');
+        const externalUrl = buildExternalBrowserUrl();
+
+        if (externalLink) {
+            externalLink.href = externalUrl;
+            externalLink.textContent = externalUrl;
+        }
+
+        if (guideCard) {
+            guideCard.classList.add('show');
+        }
+    }
+
+    function hideInlineBrowserGuide() {
+        const guideCard = document.getElementById('browserGuideCard');
+        if (guideCard) {
+            guideCard.classList.remove('show');
+        }
+    }
+
+    function retryOpenExternalBrowser() {
+        window.location.href = buildExternalBrowserUrl();
+    }
+
+    async function copyTextWithFeedback(text, successMessage, failMessage) {
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast(successMessage);
+            return true;
+        } catch (error) {
+            console.error(error);
+            showToast(failMessage);
+            return false;
+        }
+    }
+
+    async function copyExternalOpenLink() {
+        await copyTextWithFeedback(buildExternalBrowserUrl(), '已複製外部開啟連結。', '複製失敗，請手動長按下方連結複製。');
+    }
+
+    function showInlineMessage(message) {
+        showToast(message);
+    }
 
     async function initApp() {
+        if (shouldAttemptExternalBrowserRedirect()) {
+            window.location.replace(buildExternalBrowserUrl());
+            return;
+        }
+
         try {
             await liff.init({ liffId: MY_LIFF_ID });
             isLiffInitialized = true;
@@ -497,6 +687,12 @@
             }
         } catch (e) {
             console.error("LIFF Init Error", e);
+        }
+
+        if (isLineInAppBrowser) {
+            showInlineBrowserGuide();
+        } else {
+            hideInlineBrowserGuide();
         }
 
         loadState();
@@ -612,8 +808,14 @@
 
     function goStep(n) {
         if (n === 2) {
-            if (!document.getElementById('trainName').value) return alert("請輸入訓練名稱");
-            if (!document.getElementById('trainTime').value) return alert("請選擇訓練時間");
+            if (!document.getElementById('trainName').value) {
+                showInlineMessage('請先輸入訓練名稱。');
+                return;
+            }
+            if (!document.getElementById('trainTime').value) {
+                showInlineMessage('請先選擇訓練時間。');
+                return;
+            }
         }
 
         document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
@@ -701,7 +903,10 @@
     }
 
     async function showPreview() {
-        if (!p1 || !p2 || p1.isEmpty() || p2.isEmpty()) return alert("請完成教官與安全官雙人簽名");
+        if (!p1 || !p2 || p1.isEmpty() || p2.isEmpty()) {
+            showInlineMessage('請完成教官與安全官雙人簽名。');
+            return;
+        }
         
         document.getElementById('loader').style.display = 'flex';
         document.getElementById('loaderText').innerText = "產生預覽中...";
@@ -724,7 +929,7 @@
                 saveState();
             } catch (err) {
                 console.error(err);
-                alert("預覽產生失敗，請再試一次。");
+                showInlineMessage('預覽產生失敗，請再試一次。');
             } finally {
                 document.getElementById('loader').style.display = 'none';
             }
@@ -798,7 +1003,7 @@
             pdf.save(fileName);
         } catch (error) {
             console.error(error);
-            alert("PDF 下載失敗，請再試一次。");
+            showInlineMessage('PDF 下載失敗，請再試一次。');
         } finally {
             document.getElementById('loader').style.display = 'none';
         }
@@ -823,12 +1028,11 @@
     }
 
     async function copyCurrentLink() {
-        try {
-            await navigator.clipboard.writeText(FIXED_SHARE_URL);
-            alert('已複製分享連結。');
-        } catch (e) {
-            alert('複製失敗，請改用 Safari、Chrome 或外部瀏覽器再試。');
-        }
+        await copyTextWithFeedback(
+            FIXED_SHARE_URL,
+            '已複製分享連結。',
+            '複製失敗，請改用 Safari、Chrome 或手動複製連結。'
+        );
     }
 
     async function finalSubmit() {
@@ -876,7 +1080,10 @@
             }
 
             document.getElementById('loader').style.display = 'none';
-            alert('分享失敗，請改用 Safari、Chrome 或外部瀏覽器再試。');
+            showInlineMessage('分享失敗，請改用 Safari、Chrome 或外部瀏覽器再試。');
+            if (isLineInAppBrowser) {
+                showInlineBrowserGuide();
+            }
         } finally {
             document.getElementById('loader').style.display = 'none';
         }
