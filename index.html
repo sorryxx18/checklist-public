@@ -569,8 +569,9 @@
 </div>
 
 <script>
-    const MY_LIFF_ID = "2008646412-AE6RG7wN";
-    const LIFF_BASE_URL = `https://liff.line.me/${MY_LIFF_ID}`;
+    const MY_LIFF_ID = "2009733146-5efuEnwr";
+    const SHARE_ENTRY_URL = 'https://liff.line.me/2009733146-5efuEnwr';
+    const EXTERNAL_BROWSER_URL = 'https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1';
     
     const checklists = {
         general: { title: "臺北市政府消防局訓練安全檢核表(通用)", items: ["於訓練前是否有對學員進行危害告知?", "是否依照消防署或局頒教材內容安排進行上課。", "是否已熟知署頒消防安全救災手冊內容之相關規定，並依規定要求進行操作？", "現場操作人員有無身體不適情形？現場醫療器材有無準備？", "評估天候狀況是否適合操作?", "是否選用適當操作場域?", "個人裝備及使用器材是否適當?", "訓練所需裝備器材外觀功能點檢是否正常?", "確認操作人員個人裝備及身體狀況", "教官是否進行示範講解", "是否有擬定安全計畫(備援方案)？"] },
@@ -607,26 +608,11 @@
     };
 
     function buildShareUrl() {
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.delete('openExternalBrowser');
-        currentUrl.searchParams.delete('liff.state');
-        return currentUrl.toString();
+        return SHARE_ENTRY_URL;
     }
 
     function buildExternalBrowserUrl() {
-        const currentUrl = new URL(buildShareUrl());
-        const externalUrl = new URL(LIFF_BASE_URL);
-
-        currentUrl.searchParams.forEach((value, key) => {
-            externalUrl.searchParams.set(key, value);
-        });
-        externalUrl.searchParams.set('openExternalBrowser', '1');
-
-        if (currentUrl.hash) {
-            externalUrl.hash = currentUrl.hash;
-        }
-
-        return externalUrl.toString();
+        return EXTERNAL_BROWSER_URL;
     }
 
     function showToast(message) {
@@ -656,8 +642,22 @@
         if (guideCard) guideCard.classList.remove('show');
     }
 
-    function retryOpenExternalBrowser() {
-        window.location.href = buildExternalBrowserUrl();
+    async function retryOpenExternalBrowser() {
+        const externalUrl = buildExternalBrowserUrl();
+
+        try {
+            if (typeof liff !== 'undefined' && isLiffInitialized) {
+                await liff.openWindow({
+                    url: externalUrl,
+                    external: true
+                });
+                return;
+            }
+        } catch (error) {
+            console.error('LIFF 外部開啟失敗，改用一般導頁：', error);
+        }
+
+        window.location.assign(externalUrl);
     }
 
     async function copyTextWithFeedback(text, successMessage, failMessage) {
