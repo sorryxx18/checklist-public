@@ -93,21 +93,6 @@
             margin-bottom: 2px;
         }
 
-        .line-banner {
-            display: none;
-            background: var(--banner-bg);
-            color: var(--banner-text);
-            border-bottom: 1px solid #f5b7b1;
-            padding: 12px 16px;
-            font-size: 0.92rem;
-            line-height: 1.55;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        .line-banner.show {
-            display: block;
-        }
 
         .content { 
             padding: 20px; 
@@ -325,10 +310,6 @@
         建議使用 Chrome 或 Safari 開啟本系統，以確保分享與下載功能正常運作。
     </div>
 
-    <div class="line-banner" id="lineBanner">
-        目前為 LINE 內建瀏覽器，將優先使用 LINE 分享；若失敗可改用複製連結。
-    </div>
-
     <div class="content">
         <!-- Step 1 -->
         <div class="step active" id="step1">
@@ -495,6 +476,8 @@
 
     let p1, p2;
     let isLiffInitialized = false;
+    let cachedPdfBlob = null;
+    let cachedPdfFileName = '';
 
     async function initApp() {
         try {
@@ -510,7 +493,6 @@
                 document.querySelector('.app-header').classList.add('hidden');
                 document.querySelector('.app-shell').style.borderRadius = '0';
                 document.querySelector('.app-shell').style.height = '100%';
-                document.getElementById('lineBanner').classList.add('show');
             }
         } catch (e) {
             console.error("LIFF Init Error", e);
@@ -576,11 +558,17 @@
         localStorage.removeItem('fireTrainingState');
     }
 
+    function getCurrentLocalDateTimeValue() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        return now.toISOString().slice(0, 16);
+    }
+
     function setDefaultTime() {
-        if (!document.getElementById('trainTime').value) {
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById('trainTime').value = now.toISOString().slice(0, 16);
+        const trainTimeInput = document.getElementById('trainTime');
+        if (!trainTimeInput.value) {
+            trainTimeInput.value = getCurrentLocalDateTimeValue();
+            saveState();
         }
     }
 
@@ -747,7 +735,23 @@
         saveState();
     }
 
-    async function generateFinalPDF() {
+    function sanitizeFileNamePart(value, fallback = '未命名') {
+        return (value || fallback)
+            .replace(/[\\/:*?"<>|]+/g, '_')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/[. ]+$/g, '') || fallback;
+    }
+
+    function buildPdfFileName() {
+        const timeValue = document.getElementById('trainTime').value || getCurrentLocalDateTimeValue();
+        const [datePart = '', timePart = ''] = timeValue.split('T');
+        const timestamp = sanitizeFileNamePart(`${datePart}_${timePart.replace(/:/g, '-')}`, '未填時間');
+        const courseName = sanitizeFileNamePart(document.getElementById('trainName').value, '訓練安全檢核表');
+        return `${timestamp}_${courseName}.pdf`;
+    }
+
+    async function generateFinalPDFBlob() {
         fillTemplate();
 
         const target = document.getElementById('pdfTemplate');
@@ -775,16 +779,20 @@
         } else {
             pdf.addImage(canvas.toDataURL('image/jpeg', 1.0), 'JPEG', 0, 10, imgWidth, imgHeight);
         }
-        
-        return pdf;
+
+        const fileName = buildPdfFileName();
+        const pdfBlob = pdf.output('blob');
+        cachedPdfBlob = pdfBlob;
+        cachedPdfFileName = fileName;
+
+        return { pdf, pdfBlob, fileName };
     }
 
     async function downloadPDF() {
         try {
             document.getElementById('loader').style.display = 'flex';
             document.getElementById('loaderText').innerText = "產生 PDF 中...";
-            const pdf = await generateFinalPDF();
-            const fileName = `${document.getElementById('trainName').value || '訓練安全檢核表'}_檢核表.pdf`;
+            const { pdf, fileName } = await generateFinalPDFBlob();
             pdf.save(fileName);
         } catch (error) {
             console.error(error);
@@ -837,29 +845,20 @@
         const shareTitle = document.getElementById('trainName').value || '訓練安全檢核表';
 
         try {
-            if (
-                typeof liff !== 'undefined' &&
-                isLiffInitialized &&
-                liff.isInClient() &&
-                typeof liff.shareTargetPicker === 'function'
-            ) {
+            const { pdfBlob, fileName } = await generateFinalPDFBlob();
+            const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('previewModal').style.display = 'none';
 
-                const result = await liff.shareTargetPicker([
-                    {
-                        type: 'text',
-                        text: shareText
-                    }
-                ]);
-
-                if (result) {
-                    clearState();
-                    setTimeout(() => liff.closeWindow(), 300);
-                    return;
-                }
-
-                document.getElementById('loader').style.display = 'flex';
+                await navigator.share({
+                    title: shareTitle,
+                    text: shareText,
+                    files: [pdfFile]
+                });
+                clearState();
+                return;
             }
 
             if (navigator.share) {
@@ -875,10 +874,35 @@
                 return;
             }
 
-            await copyShareText(shareText);
+            document.getElementById('loader').style.display = 'none';
+            const copied = await copyShareText(shareText);
+            if (!copied && cachedPdfBlob) {
+                const downloadUrl = URL.createObjectURL(cachedPdfBlob);
+                const anchor = document.createElement('a');
+                anchor.href = downloadUrl;
+                anchor.download = cachedPdfFileName || fileName;
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                URL.revokeObjectURL(downloadUrl);
+                alert('此裝置不支援系統分享，已改為下載 PDF。');
+            }
         } catch (error) {
             console.error(error);
-            await copyShareText(shareText);
+            document.getElementById('loader').style.display = 'none';
+
+            const copied = await copyShareText(shareText);
+            if (!copied && cachedPdfBlob) {
+                const downloadUrl = URL.createObjectURL(cachedPdfBlob);
+                const anchor = document.createElement('a');
+                anchor.href = downloadUrl;
+                anchor.download = cachedPdfFileName || buildPdfFileName();
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                URL.revokeObjectURL(downloadUrl);
+                alert('分享失敗，已改為下載 PDF。');
+            }
         } finally {
             document.getElementById('loader').style.display = 'none';
         }
