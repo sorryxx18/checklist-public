@@ -158,6 +158,13 @@
             opacity: 0.9;
         }
 
+        .field-hint {
+            margin-top: 8px;
+            font-size: 0.84rem;
+            line-height: 1.5;
+            color: #7f8c8d;
+        }
+
         .toast-message {
             position: fixed;
             left: 50%;
@@ -444,6 +451,7 @@
                     <option value="water">10. 水域訓練安全檢核表</option>
                 </select>
             </div>
+            <div class="field-hint">請由下拉式選單選擇課程類型檢核表。</div>
             <label>2. 訓練名稱/期別</label>
             <div class="input-group">
                 <i class="fas fa-book"></i>
@@ -459,6 +467,7 @@
                 <i class="fas fa-map-marker-alt"></i>
                 <input type="text" id="trainLoc" value="內湖訓練中心">
             </div>
+            <div class="field-hint">請填入單位名稱或訓練地點。</div>
             
             <div class="btn-group">
                 <button class="btn btn-copy" onclick="copyCurrentLink()">
