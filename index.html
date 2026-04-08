@@ -42,7 +42,6 @@
             overflow: hidden; 
         }
 
-        /* App 容器 */
         .app-shell { 
             width: 100%; 
             max-width: 500px; 
@@ -56,7 +55,6 @@
             height: 100%;
         }
 
-        /* Header - 針對 LIFF 做隱藏處理 */
         .app-header { 
             background: var(--fire-red); 
             padding: 15px 20px; 
@@ -74,7 +72,6 @@
             font-weight: 700;
         }
 
-        /* 內容區域 */
         .content { 
             padding: 20px; 
             flex: 1; 
@@ -82,12 +79,10 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        /* 步驟切換 */
         .step { display: none; animation: fadeIn 0.3s ease; }
         .step.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 表單元素 */
         label { 
             display: block; 
             font-weight: 700; 
@@ -128,7 +123,6 @@
             outline: none;
         }
 
-        /* 檢核題目卡片 */
         .q-card { 
             background: var(--card-bg); 
             border: 1px solid #eee; 
@@ -173,7 +167,6 @@
         .opt-btn.no.selected { background: var(--warn-red); color: white; border-color: var(--warn-red); }
         .opt-btn.na.selected { background: var(--na-gray); color: white; border-color: var(--na-gray); }
 
-        /* 簽名板 */
         .sig-wrapper { 
             border: 2px dashed #bdc3c7; 
             border-radius: 12px; 
@@ -207,7 +200,6 @@
         .btn-next { background: var(--fire-red); }
         .btn-prev { background: #7f8c8d; }
 
-        /* Loader */
         #loader { 
             display: none; 
             position: fixed; 
@@ -230,7 +222,6 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Modal */
         #previewModal { 
             display: none; 
             position: fixed; 
@@ -250,7 +241,6 @@
         }
         .modal-btns { display: flex; gap: 10px; padding: 15px; background: #222; }
 
-        /* === PDF Template === */
         #pdfTemplate { 
             width: 800px; 
             padding: 30px 40px; 
@@ -310,19 +300,16 @@
                     <option value="water">10. 水域訓練安全檢核表</option>
                 </select>
             </div>
-
             <label>2. 訓練名稱/期別</label>
             <div class="input-group">
                 <i class="fas fa-book"></i>
                 <input type="text" id="trainName" placeholder="例如：空氣呼吸器訓練">
             </div>
-
             <label>3. 訓練日期時間</label>
             <div class="input-group">
                 <i class="far fa-clock"></i>
                 <input type="datetime-local" id="trainTime">
             </div>
-
             <label>4. 訓練地點</label>
             <div class="input-group">
                 <i class="fas fa-map-marker-alt"></i>
@@ -437,10 +424,8 @@
 </div>
 
 <script>
-    // === 設定區 ===
-    const MY_LIFF_ID = "2008646412-AE6RG7wN"; 
-    
-    // === 題庫資料 ===
+    const MY_LIFF_ID = "2008646412-AE6RG7wN";
+
     const checklists = {
         general: { title: "臺北市政府消防局訓練安全檢核表(通用)", items: ["於訓練前是否有對學員進行危害告知?", "是否依照消防署或局頒教材內容安排進行上課。", "是否已熟知署頒消防安全救災手冊內容之相關規定，並依規定要求進行操作？", "現場操作人員有無身體不適情形？現場醫療器材有無準備？", "評估天候狀況是否適合操作?", "是否選用適當操作場域?", "個人裝備及使用器材是否適當?", "訓練所需裝備器材外觀功能點檢是否正常?", "確認操作人員個人裝備及身體狀況", "教官是否進行示範講解", "是否有擬定安全計畫(備援方案)？"] },
         rope: { title: "臺北市政府消防局繩索救援訓練安全檢核表", items: ["於訓練前是否有對學員進行危害告知?", "是否依照消防署或局頒教材內容安排進行上課。", "是否已熟知署頒消防安全救災手冊內容之相關規定，並依規定要求進行操作？", "現場操作人員有無身體不適情形？現場醫療器材有無準備？", "操作現場是否有兩位以上師資共同授課，其中並有㇐名擔任安全官？", "是否已充分瞭解繩索及器材特性，並選擇適合的繩索及裝備器材？", "使用前是否已檢查繩索及器材完善性？", "操作現場是否有視覺死角？", "選擇穩固的固定點，或選擇多固定點以均力方式架設？", "繩索架設或操作時是否採取雙繩以上系統多重確保", "繩索系統是否已進行邊緣保護或準備邊緣保護裝備器材？", "是否落實穿著防護裝備？", "課程前教官是否有示範？", "是否有擬定安全計畫(備援方案)？", "使用後是否有檢查繩索及器材狀況？"] },
@@ -493,6 +478,8 @@
 
         updateItems();
         setDefaultTime();
+
+        await restoreAfterExternalOpen();
     }
     
     function saveState() {
@@ -504,6 +491,8 @@
             time: document.getElementById('trainTime').value,
             loc: document.getElementById('trainLoc').value,
             memo: document.getElementById('memo').value,
+            currentStep: getCurrentStep(),
+            reopenPreview: document.getElementById('previewModal').style.display === 'flex',
             answers: []
         };
 
@@ -526,7 +515,9 @@
             document.getElementById('trainTime').value = state.time || '';
             document.getElementById('trainLoc').value = state.loc || '內湖訓練中心';
             document.getElementById('memo').value = state.memo || '';
-            window.savedAnswers = state.answers;
+            window.savedAnswers = state.answers || [];
+            window.savedStep = state.currentStep || 1;
+            window.reopenPreview = !!state.reopenPreview;
         } catch (e) {
             console.error("Load state error", e);
         }
@@ -534,6 +525,7 @@
 
     function clearState() {
         localStorage.removeItem('fireTrainingState');
+        sessionStorage.removeItem('openExternalRequested');
     }
 
     function setDefaultTime() {
@@ -581,6 +573,12 @@
         saveState();
     }
 
+    function getCurrentStep() {
+        if (document.getElementById('step3').classList.contains('active')) return 3;
+        if (document.getElementById('step2').classList.contains('active')) return 2;
+        return 1;
+    }
+
     function goStep(n) {
         if (n === 2) {
             if (!document.getElementById('trainName').value) return alert("請輸入訓練名稱");
@@ -593,6 +591,8 @@
         if (n === 3) {
             requestAnimationFrame(() => initCanvas());
         }
+
+        saveState();
         window.scrollTo(0, 0);
     }
 
@@ -606,6 +606,8 @@
         canvases.forEach((obj, index) => {
             const c = document.getElementById(obj.id);
             const container = c.parentElement;
+
+            if (!c || !container) return;
             
             c.width = container.offsetWidth * ratio;
             c.height = container.offsetHeight * ratio;
@@ -631,6 +633,7 @@
     function clearSig(n) {
         if (n === 1 && p1) p1.clear();
         if (n === 2 && p2) p2.clear();
+        saveState();
     }
 
     function fillTemplate() {
@@ -688,28 +691,31 @@
                 });
                 
                 document.getElementById('previewImg').src = canvas.toDataURL('image/jpeg', 0.9);
-                document.getElementById('loader').style.display = 'none';
                 document.getElementById('previewModal').style.display = 'flex';
+                saveState();
             } catch (err) {
                 console.error(err);
-                document.getElementById('loader').style.display = 'none';
                 alert("預覽產生失敗，請再試一次。");
+            } finally {
+                document.getElementById('loader').style.display = 'none';
             }
         }, 100);
     }
 
     function closePreview() {
         document.getElementById('previewModal').style.display = 'none';
+        saveState();
     }
 
     async function generateFinalPDF() {
+        fillTemplate();
+
         const target = document.getElementById('pdfTemplate');
         const canvas = await html2canvas(target, { 
             scale: 3, 
             width: 800, 
             windowWidth: 800,
-            useCORS: true,
-            backgroundColor: '#ffffff'
+            useCORS: true
         });
         
         const { jsPDF } = window.jspdf;
@@ -734,9 +740,9 @@
     }
 
     async function downloadPDF() {
-        document.getElementById('loader').style.display = 'flex';
-        document.getElementById('loaderText').innerText = "產生 PDF 中...";
         try {
+            document.getElementById('loader').style.display = 'flex';
+            document.getElementById('loaderText').innerText = "產生 PDF 中...";
             const pdf = await generateFinalPDF();
             const fileName = `${document.getElementById('trainName').value || '訓練安全檢核表'}_檢核表.pdf`;
             pdf.save(fileName);
@@ -748,57 +754,117 @@
         }
     }
 
+    function buildExternalUrl() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('openExternal', '1');
+        return url.toString();
+    }
+
+    async function openInExternalBrowserWithConfirm() {
+        saveState();
+
+        const ok = confirm("目前環境可能不支援直接分享。\n\n是否改用外部瀏覽器開啟？\n開啟後將自動保留目前填寫內容，不需重填。");
+        if (!ok) return;
+
+        sessionStorage.setItem('openExternalRequested', '1');
+
+        const targetUrl = buildExternalUrl();
+
+        try {
+            if (typeof liff !== 'undefined' && isLiffInitialized) {
+                liff.openWindow({
+                    url: targetUrl,
+                    external: true
+                });
+            } else {
+                window.open(targetUrl, '_blank');
+            }
+        } catch (e) {
+            console.error(e);
+            window.open(targetUrl, '_blank');
+        }
+    }
+
+    async function tryNativeShare() {
+        const pdf = await generateFinalPDF();
+        const fileName = `${document.getElementById('trainName').value || '訓練安全檢核表'}_安全檢核.pdf`;
+        const pdfBlob = pdf.output('blob');
+        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+        const shareData = {
+            files: [pdfFile],
+            title: fileName,
+            text: document.getElementById('trainName').value || '訓練安全檢核表'
+        };
+
+        if (navigator.canShare && navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+            clearState();
+            return true;
+        }
+
+        return false;
+    }
+
     async function finalSubmit() {
         document.getElementById('loader').style.display = 'flex';
         document.getElementById('loaderText').innerText = "準備分享中...";
 
         try {
-            const pdf = await generateFinalPDF();
-            const fileName = `${document.getElementById('trainName').value || '訓練安全檢核表'}_安全檢核.pdf`;
-            const pdfBlob = pdf.output('blob');
-            const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+            const shared = await tryNativeShare();
+            document.getElementById('loader').style.display = 'none';
 
-            const shareData = {
-                files: [pdfFile],
-                title: fileName,
-                text: document.getElementById('trainName').value || '訓練安全檢核表'
-            };
-
-            if (navigator.canShare && navigator.canShare(shareData)) {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('previewModal').style.display = 'none';
-
-                await navigator.share(shareData);
-                clearState();
-
+            if (shared) {
                 if (typeof liff !== 'undefined' && isLiffInitialized && liff.isInClient()) {
                     setTimeout(() => liff.closeWindow(), 300);
                 }
                 return;
             }
 
-            // 不支援分享時，自動改下載 PDF，不額外跳錯誤
-            const url = URL.createObjectURL(pdfBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
+            await openInExternalBrowserWithConfirm();
         } catch (error) {
             console.error(error);
-            // 若發生其他例外，也改為安靜 fallback 下載
-            try {
-                const pdf = await generateFinalPDF();
-                const fileName = `${document.getElementById('trainName').value || '訓練安全檢核表'}_安全檢核.pdf`;
-                pdf.save(fileName);
-            } catch (fallbackError) {
-                console.error(fallbackError);
-            }
-        } finally {
             document.getElementById('loader').style.display = 'none';
+
+            if (error && error.name === 'AbortError') {
+                return;
+            }
+
+            await openInExternalBrowserWithConfirm();
         }
+    }
+
+    async function restoreAfterExternalOpen() {
+        const url = new URL(window.location.href);
+        const shouldRestoreExternal = url.searchParams.get('openExternal') === '1' || sessionStorage.getItem('openExternalRequested') === '1';
+
+        if (!shouldRestoreExternal) {
+            if (window.savedStep) {
+                goStep(window.savedStep);
+            }
+            return;
+        }
+
+        if (window.savedStep) {
+            goStep(window.savedStep);
+        }
+
+        if (window.savedStep === 3) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        if (window.reopenPreview) {
+            await new Promise(resolve => setTimeout(resolve, 350));
+            try {
+                await showPreview();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        sessionStorage.removeItem('openExternalRequested');
+        url.searchParams.delete('openExternal');
+        window.history.replaceState({}, document.title, url.toString());
     }
 
     window.onload = initApp;
