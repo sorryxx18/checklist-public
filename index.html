@@ -326,7 +326,7 @@
     </div>
 
     <div class="line-banner" id="lineBanner">
-        目前為 LINE 內建瀏覽器，分享功能可能受限；建議複製連結後，以 Chrome 或 Safari 開啟。
+        目前為 LINE 內建瀏覽器，將優先使用 LINE 分享；若失敗可改用複製連結。
     </div>
 
     <div class="content">
@@ -501,7 +501,7 @@
             await liff.init({ liffId: MY_LIFF_ID });
             isLiffInitialized = true;
 
-            if (!liff.isLoggedIn()) {
+            if (liff.isInClient() && !liff.isLoggedIn()) {
                 liff.login();
                 return;
             }
@@ -794,61 +794,91 @@
         }
     }
 
-    async function copyCurrentLink() {
+    function buildShareText() {
+        const courseType = document.getElementById('courseType');
+        const typeText = courseType.options[courseType.selectedIndex]?.text || '通用課程檢核表';
+        const trainName = document.getElementById('trainName').value || '未命名訓練';
+        const trainTime = document.getElementById('trainTime').value || '未填寫時間';
+        const trainLoc = document.getElementById('trainLoc').value || '未填寫地點';
+
+        return [
+            `【訓練安全檢核表】`,
+            `課程：${typeText}`,
+            `訓練名稱：${trainName}`,
+            `時間：${trainTime}`,
+            `地點：${trainLoc}`,
+            '',
+            window.location.href
+        ].join('\n');
+    }
+
+    async function copyShareText(shareText) {
         try {
-            await navigator.clipboard.writeText(window.location.href);
-            alert("已複製連結，請用 Chrome 或 Safari 開啟。");
+            await navigator.clipboard.writeText(shareText);
+            alert('已複製分享內容，可直接貼到 LINE 或其他訊息視窗。');
+            return true;
         } catch (e) {
             console.error(e);
-            alert("複製失敗，請手動複製網址列連結。");
+            alert('複製失敗，請手動複製網址列連結。');
+            return false;
         }
+    }
+
+    async function copyCurrentLink() {
+        await copyShareText(window.location.href);
     }
 
     async function finalSubmit() {
         document.getElementById('loader').style.display = 'flex';
-        document.getElementById('loaderText').innerText = "準備分享中...";
+        document.getElementById('loaderText').innerText = '準備分享中...';
+
+        const shareText = buildShareText();
+        const shareUrl = window.location.href;
+        const shareTitle = document.getElementById('trainName').value || '訓練安全檢核表';
 
         try {
-            const pdf = await generateFinalPDF();
-            const fileName = `${document.getElementById('trainName').value || '訓練安全檢核表'}_安全檢核.pdf`;
-            const pdfBlob = pdf.output('blob');
-            const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
-            const shareData = {
-                files: [pdfFile],
-                title: fileName,
-                text: document.getElementById('trainName').value || '訓練安全檢核表'
-            };
-
-            if (navigator.canShare && navigator.canShare(shareData)) {
+            if (
+                typeof liff !== 'undefined' &&
+                isLiffInitialized &&
+                liff.isInClient() &&
+                typeof liff.shareTargetPicker === 'function'
+            ) {
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('previewModal').style.display = 'none';
 
-                await navigator.share(shareData);
-                clearState();
+                const result = await liff.shareTargetPicker([
+                    {
+                        type: 'text',
+                        text: shareText
+                    }
+                ]);
 
-                if (typeof liff !== 'undefined' && liff.isInClient()) {
+                if (result) {
+                    clearState();
                     setTimeout(() => liff.closeWindow(), 300);
+                    return;
                 }
+
+                document.getElementById('loader').style.display = 'flex';
+            }
+
+            if (navigator.share) {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('previewModal').style.display = 'none';
+
+                await navigator.share({
+                    title: shareTitle,
+                    text: shareText,
+                    url: shareUrl
+                });
+                clearState();
                 return;
             }
 
-            const url = URL.createObjectURL(pdfBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-
+            await copyShareText(shareText);
         } catch (error) {
             console.error(error);
-            try {
-                const pdf = await generateFinalPDF();
-                const fileName = `${document.getElementById('trainName').value || '訓練安全檢核表'}_安全檢核.pdf`;
-                pdf.save(fileName);
-            } catch (fallbackError) {
-                console.error(fallbackError);
-            }
+            await copyShareText(shareText);
         } finally {
             document.getElementById('loader').style.display = 'none';
         }
