@@ -414,8 +414,8 @@
                 <i class="fas fa-up-right-from-square"></i> 再試一次外部開啟
             </button>
         </div>
-        <a id="externalBrowserLink" class="browser-guide-link" href="#" target="_blank" rel="noopener noreferrer">點我用外部瀏覽器開啟（乾淨連結）</a>
-        <div class="browser-guide-hint">下方只提供乾淨連結，不會把一長串參數直接攤在畫面上。</div>
+        <a id="externalBrowserLink" class="browser-guide-link" href="#" target="_blank" rel="noopener noreferrer">點我直接用外部瀏覽器開啟</a>
+        <div class="browser-guide-hint">若沒有自動跳出去，請按上方按鈕或這個連結重新開啟。</div>
     </div>
 
     <div class="content">
@@ -570,7 +570,7 @@
 
 <script>
     const MY_LIFF_ID = "2008646412-AE6RG7wN";
-    const FIXED_SHARE_URL = "https://liff.line.me/2009733146-5efuEnwr";
+    const FIXED_SHARE_URL = "https://liff.line.me/2009733146-5efuEnwr?openExternalBrowser=1";
     
     const checklists = {
         general: { title: "臺北市政府消防局訓練安全檢核表(通用)", items: ["於訓練前是否有對學員進行危害告知?", "是否依照消防署或局頒教材內容安排進行上課。", "是否已熟知署頒消防安全救災手冊內容之相關規定，並依規定要求進行操作？", "現場操作人員有無身體不適情形？現場醫療器材有無準備？", "評估天候狀況是否適合操作?", "是否選用適當操作場域?", "個人裝備及使用器材是否適當?", "訓練所需裝備器材外觀功能點檢是否正常?", "確認操作人員個人裝備及身體狀況", "教官是否進行示範講解", "是否有擬定安全計畫(備援方案)？"] },
@@ -591,11 +591,9 @@
     let cachedPdfFileName = '';
     let toastTimer = null;
     const isLineInAppBrowser = /Line\//i.test(navigator.userAgent || '');
-    const CLEAN_EXTERNAL_BROWSER_URL = 'https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1';
-    const CLEAN_EXTERNAL_BROWSER_LABEL = 'https://sorryxx18.github.io/checklist-public/';
 
     function buildExternalBrowserUrl() {
-        return CLEAN_EXTERNAL_BROWSER_URL;
+        return FIXED_SHARE_URL;
     }
 
     function shouldAttemptExternalBrowserRedirect() {
@@ -626,7 +624,7 @@
 
         if (externalLink) {
             externalLink.href = externalUrl;
-            externalLink.textContent = `外部開啟短連結：${CLEAN_EXTERNAL_BROWSER_LABEL}`;
+            externalLink.textContent = '點我直接用外部瀏覽器開啟';
         }
 
         if (guideCard) {
@@ -665,6 +663,27 @@
         showToast(message);
     }
 
+    function bindStatePersistence() {
+        ['trainName', 'trainTime', 'trainLoc', 'memo', 'courseType'].forEach((id) => {
+            const field = document.getElementById(id);
+            if (!field) return;
+            field.addEventListener('change', () => {
+                if (id === 'trainTime') {
+                    ensureCurrentTime();
+                    return;
+                }
+                saveState();
+            });
+            field.addEventListener('input', () => {
+                if (id === 'trainTime') {
+                    ensureCurrentTime();
+                    return;
+                }
+                saveState();
+            });
+        });
+    }
+
     async function initApp() {
         if (shouldAttemptExternalBrowserRedirect()) {
             window.location.replace(buildExternalBrowserUrl());
@@ -695,6 +714,7 @@
             hideInlineBrowserGuide();
         }
 
+        bindStatePersistence();
         loadState();
 
         const fullUrl = window.location.href;
@@ -746,6 +766,7 @@
             document.getElementById('trainLoc').value = state.loc || '內湖訓練中心';
             document.getElementById('memo').value = state.memo || '';
             window.savedAnswers = state.answers;
+            ensureCurrentTime({ syncState: false });
         } catch (e) {
             console.error("Load state error", e);
         }
@@ -761,12 +782,23 @@
         return now.toISOString().slice(0, 16);
     }
 
-    function setDefaultTime() {
+    function ensureCurrentTime(options = {}) {
+        const { force = false, syncState = true } = options;
         const trainTimeInput = document.getElementById('trainTime');
-        if (!trainTimeInput.value) {
+        if (!trainTimeInput) return;
+
+        const currentValue = (trainTimeInput.value || '').trim();
+        if (force || !currentValue) {
             trainTimeInput.value = getCurrentLocalDateTimeValue();
+        }
+
+        if (syncState) {
             saveState();
         }
+    }
+
+    function setDefaultTime() {
+        ensureCurrentTime();
     }
 
     function updateItems() {
@@ -807,6 +839,8 @@
     }
 
     function goStep(n) {
+        ensureCurrentTime();
+
         if (n === 2) {
             if (!document.getElementById('trainName').value) {
                 showInlineMessage('請先輸入訓練名稱。');
@@ -868,11 +902,14 @@
     }
 
     function fillTemplate() {
+        ensureCurrentTime();
+
         const type = document.getElementById('courseType').value;
         const data = checklists[type];
         const timeVal = document.getElementById('trainTime').value;
-        const [y, m, d] = timeVal.split('T')[0].split('-');
-        const [hh, mm] = timeVal.split('T')[1].split(':');
+        const [datePart = '', timePart = ''] = timeVal.split('T');
+        const [y, m, d] = (datePart || '').split('-');
+        const [hh, mm] = (timePart || '').split(':');
 
         document.getElementById('pdfTitle').innerText = data.title;
         document.getElementById('pdfCourseName').innerText = document.getElementById('trainName').value;
@@ -950,6 +987,7 @@
     }
 
     function buildPdfFileName() {
+        ensureCurrentTime();
         const timeValue = document.getElementById('trainTime').value || getCurrentLocalDateTimeValue();
         const [datePart = '', timePart = ''] = timeValue.split('T');
         const ymd = (datePart || '').replace(/-/g, '') || '未填時間';
@@ -1010,6 +1048,7 @@
     }
 
     function buildShareText() {
+        ensureCurrentTime();
         const courseType = document.getElementById('courseType');
         const typeText = courseType.options[courseType.selectedIndex]?.text || '通用課程檢核表';
         const trainName = document.getElementById('trainName').value || '未命名訓練';
