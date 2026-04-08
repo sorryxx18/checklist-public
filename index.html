@@ -603,6 +603,8 @@
     const isLineInAppBrowser = /Line\//i.test(navigator.userAgent || '');
     const STORAGE_KEY = 'fireTrainingState';
     const TRAIN_TIME_SESSION_KEY = 'fireTrainingState:trainTime';
+    const DRAFT_SESSION_KEY = 'fireTrainingState:draftSessionId';
+    const DRAFT_RETENTION_MS = 60 * 60 * 1000;
     const DEFAULT_LOCATION = '內湖訓練中心';
     const DEFAULT_ANSWER = '是';
     const appState = {
@@ -612,7 +614,9 @@
         loc: DEFAULT_LOCATION,
         memo: '',
         answersByType: {},
-        signatures: { instructor: '', safety: '' }
+        signatures: { instructor: '', safety: '' },
+        lastUpdatedAt: '',
+        draftSessionId: ''
     };
 
     function buildShareUrl() {
@@ -686,6 +690,46 @@
         return now.toISOString().slice(0, 16);
     }
 
+    function getDraftSessionId() {
+        if (!window.sessionStorage) return '';
+        let draftSessionId = sessionStorage.getItem(DRAFT_SESSION_KEY) || '';
+        if (!draftSessionId) {
+            if (window.crypto?.randomUUID) {
+                draftSessionId = window.crypto.randomUUID();
+            } else {
+                draftSessionId = `draft-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            }
+            sessionStorage.setItem(DRAFT_SESSION_KEY, draftSessionId);
+        }
+        return draftSessionId;
+    }
+
+    function shouldKeepDraft(parsed) {
+        const currentDraftSessionId = getDraftSessionId();
+        const savedDraftSessionId = parsed?.draftSessionId || '';
+        if (currentDraftSessionId && savedDraftSessionId && currentDraftSessionId === savedDraftSessionId) {
+            return true;
+        }
+
+        const lastUpdatedAt = Date.parse(parsed?.lastUpdatedAt || '');
+        if (!Number.isFinite(lastUpdatedAt)) return false;
+        return (Date.now() - lastUpdatedAt) <= DRAFT_RETENTION_MS;
+    }
+
+    function normalizeDraftFields(parsed) {
+        if (shouldKeepDraft(parsed)) {
+            return {
+                name: parsed?.name || '',
+                loc: parsed?.loc || DEFAULT_LOCATION
+            };
+        }
+
+        return {
+            name: '',
+            loc: DEFAULT_LOCATION
+        };
+    }
+
     function persistTrainTime() {
         if (!window.sessionStorage) return;
         const trainTimeInput = document.getElementById('trainTime');
@@ -746,6 +790,8 @@
     function persistState() {
         if (!window.localStorage) return;
         syncFormToState();
+        appState.lastUpdatedAt = new Date().toISOString();
+        appState.draftSessionId = getDraftSessionId();
         const stateToPersist = {
             ...appState,
             time: ''
@@ -754,9 +800,12 @@
     }
 
     function clearState() {
-        localStorage.removeItem(STORAGE_KEY);
+        if (window.localStorage) {
+            localStorage.removeItem(STORAGE_KEY);
+        }
         if (window.sessionStorage) {
             sessionStorage.removeItem(TRAIN_TIME_SESSION_KEY);
+            sessionStorage.removeItem(DRAFT_SESSION_KEY);
         }
     }
 
@@ -766,10 +815,11 @@
 
         try {
             const parsed = JSON.parse(saved);
+            const draftFields = normalizeDraftFields(parsed);
             appState.type = parsed.type || 'general';
-            appState.name = parsed.name || '';
+            appState.name = draftFields.name;
             appState.time = '';
-            appState.loc = parsed.loc || DEFAULT_LOCATION;
+            appState.loc = draftFields.loc;
             appState.memo = parsed.memo || '';
             appState.answersByType = parsed.answersByType || {};
             if (!appState.answersByType[appState.type] && Array.isArray(parsed.answers)) {
@@ -779,6 +829,8 @@
                 instructor: parsed.signatures?.instructor || parsed.sig1 || '',
                 safety: parsed.signatures?.safety || parsed.sig2 || ''
             };
+            appState.lastUpdatedAt = parsed.lastUpdatedAt || '';
+            appState.draftSessionId = parsed.draftSessionId || '';
         } catch (error) {
             console.error('Load state error', error);
         }
