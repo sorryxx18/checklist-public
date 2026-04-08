@@ -397,19 +397,19 @@
 
     <div class="top-notice">
         <strong>⚠ 最佳使用方式</strong>
-        建議使用 Chrome 或 Safari 開啟本系統，以確保分享與下載功能正常運作。
+        建議使用 Chrome 或 Safari 開啟本系統，以確保分享、複製連結與下載功能正常運作。
     </div>
 
     <div id="browserGuideCard" class="browser-guide-card" aria-live="polite">
         <h3><i class="fab fa-line"></i> 目前偵測為 LINE 內建瀏覽器</h3>
         <p>LINE 內建瀏覽器常會擋住 PDF 下載或分享檔案。建議改用 <strong>Safari</strong> 或 <strong>Chrome</strong> 開啟，功能會穩定很多。</p>
         <ul>
-            <li>可先點下方按鈕，再嘗試跳轉到外部瀏覽器。</li>
-            <li>如果還是留在 LINE，請改用右上角選單，選擇「在 Safari 開啟」或「在 Chrome 開啟」。</li>
+            <li>若要轉傳給其他人，請優先使用下方的「複製分享連結」。</li>
+            <li>如果要切到外部瀏覽器，請點下方按鈕；若仍停留在 LINE，請改用右上角選單開啟。</li>
         </ul>
         <div class="browser-guide-actions">
-            <button class="btn btn-copy" type="button" onclick="copyExternalOpenLink()">
-                <i class="fas fa-copy"></i> 複製外部開啟連結
+            <button class="btn btn-copy" type="button" onclick="copyCurrentLink()">
+                <i class="fas fa-copy"></i> 複製分享連結
             </button>
             <a
                 id="externalBrowserButton"
@@ -418,11 +418,11 @@
                 target="_blank"
                 rel="noopener noreferrer external"
             >
-                <i class="fas fa-up-right-from-square"></i> 用外部瀏覽器開啟
+                <i class="fas fa-up-right-from-square"></i> 改用外部瀏覽器開啟
             </a>
         </div>
-        <a id="externalBrowserLink" class="browser-guide-link" href="https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1" target="_blank" rel="noopener noreferrer external">點我直接用外部瀏覽器開啟</a>
-        <div class="browser-guide-hint">若沒有自動跳出去，請按上方按鈕或這個連結重新開啟。</div>
+        <a id="externalBrowserLink" class="browser-guide-link" href="https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1" target="_blank" rel="noopener noreferrer external">重新嘗試外部開啟</a>
+        <div class="browser-guide-hint">若沒有成功切換，請先複製分享連結，再重新嘗試外部開啟。</div>
     </div>
 
     <div class="content">
@@ -462,7 +462,7 @@
             
             <div class="btn-group">
                 <button class="btn btn-copy" onclick="copyCurrentLink()">
-                    <i class="fas fa-link"></i> 複製連結
+                    <i class="fas fa-link"></i> 複製分享連結
                 </button>
                 <button class="btn btn-next" onclick="goStep(2)">
                     填寫檢核表 <i class="fas fa-chevron-right"></i>
@@ -514,11 +514,11 @@
 <!-- Modal -->
 <div id="previewModal">
     <div id="previewContent"><img id="previewImg" src=""></div>
-    <div class="modal-note">⚠ 建議使用 Chrome 或 Safari 開啟，以確保分享功能正常</div>
+    <div class="modal-note">⚠ 建議使用 Chrome 或 Safari 開啟，以確保分享、複製連結與下載功能正常</div>
     <div class="modal-btns">
         <button class="btn btn-prev" onclick="closePreview()">返回修改</button>
         <button class="btn btn-copy" onclick="copyCurrentLink()">
-            <i class="fas fa-link"></i> 複製連結
+            <i class="fas fa-link"></i> 複製分享連結
         </button>
         <button class="btn" style="background:#27ae60;" onclick="downloadPDF()">
             <i class="fas fa-download"></i> 下載 PDF
@@ -645,7 +645,7 @@
         }
         if (externalLink) {
             externalLink.href = externalUrl;
-            externalLink.textContent = '點我直接用外部瀏覽器開啟';
+            externalLink.textContent = '重新嘗試外部開啟';
         }
         if (guideCard) guideCard.classList.add('show');
     }
@@ -668,11 +668,11 @@
     }
 
     async function copyExternalOpenLink() {
-        await copyTextWithFeedback(buildExternalBrowserUrl(), '已複製外部開啟連結。', '複製失敗，請手動長按下方連結複製。');
+        await copyCurrentLink();
     }
 
     async function copyCurrentLink() {
-        await copyTextWithFeedback(buildShareUrl(), '已複製分享連結。', '複製失敗，請改用 Safari、Chrome 或手動複製連結。');
+        await copyTextWithFeedback(buildShareUrl(), '已複製分享連結。', '複製失敗，請改用 Safari、Chrome 或手動複製分享連結。');
     }
 
     function showInlineMessage(message) {
