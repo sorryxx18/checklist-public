@@ -602,6 +602,7 @@
     let signaturePadsBound = false;
     const isLineInAppBrowser = /Line\//i.test(navigator.userAgent || '');
     const STORAGE_KEY = 'fireTrainingState';
+    const TRAIN_TIME_SESSION_KEY = 'fireTrainingState:trainTime';
     const DEFAULT_LOCATION = '內湖訓練中心';
     const DEFAULT_ANSWER = '是';
     const appState = {
@@ -685,13 +686,34 @@
         return now.toISOString().slice(0, 16);
     }
 
+    function persistTrainTime() {
+        if (!window.sessionStorage) return;
+        const trainTimeInput = document.getElementById('trainTime');
+        if (!trainTimeInput) return;
+        const value = (trainTimeInput.value || '').trim();
+        appState.time = value;
+
+        if (value) {
+            sessionStorage.setItem(TRAIN_TIME_SESSION_KEY, value);
+        } else {
+            sessionStorage.removeItem(TRAIN_TIME_SESSION_KEY);
+        }
+    }
+
+    function loadTrainTime() {
+        if (!window.sessionStorage) return;
+        const savedTime = (sessionStorage.getItem(TRAIN_TIME_SESSION_KEY) || '').trim();
+        if (!savedTime) return;
+        appState.time = savedTime;
+    }
+
     function ensureInitialTimeValue() {
         const trainTimeInput = document.getElementById('trainTime');
         if (!trainTimeInput) return;
         if (!(trainTimeInput.value || '').trim()) {
             trainTimeInput.value = getCurrentLocalDateTimeValue();
             appState.time = trainTimeInput.value;
-            persistState();
+            persistTrainTime();
         }
     }
 
@@ -724,11 +746,18 @@
     function persistState() {
         if (!window.localStorage) return;
         syncFormToState();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        const stateToPersist = {
+            ...appState,
+            time: ''
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToPersist));
     }
 
     function clearState() {
         localStorage.removeItem(STORAGE_KEY);
+        if (window.sessionStorage) {
+            sessionStorage.removeItem(TRAIN_TIME_SESSION_KEY);
+        }
     }
 
     function loadState() {
@@ -739,7 +768,7 @@
             const parsed = JSON.parse(saved);
             appState.type = parsed.type || 'general';
             appState.name = parsed.name || '';
-            appState.time = parsed.time || '';
+            appState.time = '';
             appState.loc = parsed.loc || DEFAULT_LOCATION;
             appState.memo = parsed.memo || '';
             appState.answersByType = parsed.answersByType || {};
@@ -764,11 +793,16 @@
     }
 
     function bindStatePersistence() {
-        ['trainName', 'trainTime', 'trainLoc', 'memo'].forEach((id) => {
+        ['trainName', 'trainLoc', 'memo'].forEach((id) => {
             const field = document.getElementById(id);
             if (!field) return;
             ['change', 'input'].forEach((eventName) => field.addEventListener(eventName, persistState));
         });
+
+        const trainTimeField = document.getElementById('trainTime');
+        if (trainTimeField) {
+            ['change', 'input'].forEach((eventName) => trainTimeField.addEventListener(eventName, persistTrainTime));
+        }
 
         const courseTypeField = document.getElementById('courseType');
         if (courseTypeField) {
@@ -1189,6 +1223,7 @@
         else hideInlineBrowserGuide();
 
         loadState();
+        loadTrainTime();
         applyStateToForm();
         bindStatePersistence();
         ensureInitialTimeValue();
