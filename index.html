@@ -17,25 +17,28 @@
 
     <style>
         :root { 
-            --fire-red: #c0392b; 
-            --gold: #d4af37; 
-            --dark: #2c3e50; 
-            --bg-color: #f4f6f8;
+            --fire-red: #a6342a; 
+            --gold: #b99a3a; 
+            --dark: #25313c; 
+            --bg-color: #f3f2ef;
             --card-bg: #ffffff;
-            --success-green: #27ae60;
-            --warn-red: #e74c3c;
-            --na-gray: #95a5a6;
+            --success-green: #3f6b57;
+            --warn-red: #b14a3b;
+            --na-gray: #7d8790;
             --app-height: 100vh;
-            --notice-bg: #fff8e1;
-            --notice-border: #f1c40f;
-            --notice-text: #7d6608;
-            --banner-bg: #fdecea;
-            --banner-border: #e74c3c;
-            --banner-text: #922b21;
-            --line-card-bg: #eefaf3;
-            --line-card-border: #2ecc71;
-            --line-card-text: #1e5631;
-            --toast-bg: rgba(44, 62, 80, 0.92);
+            --notice-bg: #f8f2e6;
+            --notice-border: #d1bc84;
+            --notice-text: #685533;
+            --banner-bg: #f4e8e4;
+            --banner-border: #b87064;
+            --banner-text: #6f3f36;
+            --line-card-bg: #f7f1e7;
+            --line-card-border: #c4ab74;
+            --line-card-text: #56452b;
+            --btn-secondary: #5f6b76;
+            --btn-accent: #6a5442;
+            --btn-support: #6a7c73;
+            --toast-bg: rgba(37, 49, 60, 0.94);
         }
         
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -359,9 +362,9 @@
         }
         .btn:active { opacity: 0.9; transform: scale(0.98); }
         .btn-next { background: var(--fire-red); }
-        .btn-prev { background: #7f8c8d; }
-        .btn-copy { background: #8e44ad; }
-        .btn-external { background: #16a085; }
+        .btn-prev { background: var(--btn-secondary); }
+        .btn-copy { background: var(--btn-accent); }
+        .btn-external { background: var(--btn-support); }
 
         #loader { 
             display: none; 
@@ -612,7 +615,7 @@
 
             <div class="btn-group">
                 <button class="btn btn-prev" onclick="goStep(2)">回上步</button>
-                <button class="btn" style="background:#2980b9;" onclick="showPreview()">
+                <button class="btn btn-copy" onclick="showPreview()">
                     預覽文件 <i class="fas fa-file-image"></i>
                 </button>
             </div>
@@ -629,7 +632,7 @@
         <button class="btn btn-copy" onclick="copyCurrentLink()">
             <i class="fas fa-link"></i> 複製分享連結
         </button>
-        <button class="btn" style="background:#27ae60;" onclick="downloadPDF()">
+        <button class="btn btn-external" onclick="downloadPDF()">
             <i class="fas fa-download"></i> 下載 PDF
         </button>
         <button class="btn btn-next" onclick="finalSubmit()">
