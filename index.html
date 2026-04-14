@@ -139,6 +139,13 @@
             margin-top: 14px;
         }
 
+        .browser-guide-primary {
+            width: 100%;
+            min-height: 56px;
+            font-size: 1.02rem;
+            box-shadow: 0 8px 18px rgba(22, 160, 133, 0.18);
+        }
+
         .browser-guide-link {
             display: block;
             margin-top: 12px;
@@ -507,27 +514,22 @@
 
     <div id="browserGuideCard" class="browser-guide-card" aria-live="polite">
         <h3><i class="fab fa-line"></i> 目前偵測為 LINE 內建瀏覽器</h3>
-        <p>LINE 內建瀏覽器常會擋住 PDF 下載或分享檔案。建議改用 <strong>Safari</strong> 或 <strong>Chrome</strong> 開啟，功能會穩定很多。</p>
-        <ul>
-            <li>若要轉傳給其他人，請優先使用下方的「複製分享連結」。</li>
-            <li>如果要切到外部瀏覽器，請點下方按鈕；若仍停留在 LINE，請改用右上角選單開啟。</li>
-        </ul>
+        <p>LINE 內建瀏覽器常會擋住 PDF 下載與分享。請優先改用 <strong>Safari</strong> 或 <strong>Chrome</strong> 開啟，功能會穩定很多。</p>
         <div class="browser-guide-actions">
+            <button
+                id="externalBrowserButton"
+                class="btn btn-external browser-guide-primary"
+                type="button"
+                onclick="openInExternalBrowser()"
+            >
+                <i class="fas fa-up-right-from-square"></i> 點我改用外部瀏覽器開啟
+            </button>
             <button class="btn btn-copy" type="button" onclick="copyCurrentLink()">
                 <i class="fas fa-copy"></i> 複製分享連結
             </button>
-            <a
-                id="externalBrowserButton"
-                class="btn btn-external"
-                href="https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1"
-                target="_blank"
-                rel="noopener noreferrer external"
-            >
-                <i class="fas fa-up-right-from-square"></i> 改用外部瀏覽器開啟
-            </a>
         </div>
-        <a id="externalBrowserLink" class="browser-guide-link" href="https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1" target="_blank" rel="noopener noreferrer external">重新嘗試外部開啟</a>
-        <div class="browser-guide-hint">若沒有成功切換，請先複製分享連結，再重新嘗試外部開啟。</div>
+        <a id="externalBrowserLink" class="browser-guide-link" href="https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1" target="_blank" rel="noopener noreferrer external">若未成功跳轉，請點我再試一次</a>
+        <div class="browser-guide-hint">如果還是停留在 LINE，請改用右上角選單，以外部瀏覽器開啟。</div>
     </div>
 
     <div class="content">
@@ -750,6 +752,11 @@
         }, 450);
     }
 
+    function openInExternalBrowser() {
+        const targetUrl = buildExternalBrowserUrl();
+        window.location.href = targetUrl;
+    }
+
     function showToast(message) {
         const toast = document.getElementById('toastMessage');
         if (!toast) return;
@@ -764,16 +771,12 @@
         if (!isLineInAppBrowser) return;
 
         const guideCard = document.getElementById('browserGuideCard');
-        const externalButton = document.getElementById('externalBrowserButton');
         const externalLink = document.getElementById('externalBrowserLink');
         const externalUrl = buildExternalBrowserUrl();
 
-        if (externalButton) {
-            externalButton.href = externalUrl;
-        }
         if (externalLink) {
             externalLink.href = externalUrl;
-            externalLink.textContent = '重新嘗試外部開啟';
+            externalLink.textContent = '若未成功跳轉，請點我再試一次';
         }
         if (guideCard) guideCard.classList.add('show');
     }
