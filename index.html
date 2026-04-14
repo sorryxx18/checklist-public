@@ -684,7 +684,7 @@
 
 <script>
     const MY_LIFF_ID = "2009733146-5efuEnwr";
-    const SHARE_ENTRY_URL = 'https://liff.line.me/2009733146-5efuEnwr';
+    const SHARE_ENTRY_URL = 'https://sorryxx18.github.io/checklist-public/';
     const EXTERNAL_BROWSER_URL = 'https://sorryxx18.github.io/checklist-public/?openExternalBrowser=1';
     
     const checklists = {
@@ -731,7 +731,23 @@
     }
 
     function buildExternalBrowserUrl() {
-        return EXTERNAL_BROWSER_URL;
+        const url = new URL(EXTERNAL_BROWSER_URL);
+        url.searchParams.set('autoAttempted', '1');
+        return url.toString();
+    }
+
+    function shouldAutoAttemptExternalOpen() {
+        if (!isLineInAppBrowser) return false;
+        const params = new URLSearchParams(window.location.search);
+        return !params.has('openExternalBrowser') && !params.has('autoAttempted');
+    }
+
+    function autoAttemptExternalOpen() {
+        if (!shouldAutoAttemptExternalOpen()) return;
+        const targetUrl = buildExternalBrowserUrl();
+        setTimeout(() => {
+            window.location.replace(targetUrl);
+        }, 450);
     }
 
     function showToast(message) {
@@ -1378,8 +1394,12 @@
 
     async function initApp() {
         await initLiffIfNeeded();
-        if (isLineInAppBrowser) showInlineBrowserGuide();
-        else hideInlineBrowserGuide();
+        if (isLineInAppBrowser) {
+            showInlineBrowserGuide();
+            autoAttemptExternalOpen();
+        } else {
+            hideInlineBrowserGuide();
+        }
 
         loadState();
         loadTrainTime();
